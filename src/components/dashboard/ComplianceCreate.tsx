@@ -1,7 +1,18 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Upload, X, FileText, ArrowLeft, Loader2, CheckCircle, AlertCircle, Calendar, Hash } from 'lucide-react';
-import { Card } from '../ui/card';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Upload,
+  X,
+  FileText,
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+  Hash,
+} from "lucide-react";
+import { Card } from "../ui/Card";
+import { useCompliance } from "../../hooks/useCompliance";
 
 interface ComplianceCreateProps {
   projectId: string;
@@ -13,7 +24,7 @@ interface ComplianceResult {
   compliance_id: number;
   project_id: number;
   compliance_result: {
-    decision: 'approved' | 'rejected';
+    decision: "approved" | "rejected";
     overview: {
       total_violations: number;
       compliance_score: number;
@@ -22,7 +33,7 @@ interface ComplianceResult {
     violations: Array<{
       code: string;
       description: string;
-      severity: 'critical' | 'major' | 'minor';
+      severity: "critical" | "major" | "minor";
       location: string;
       found: string;
       required: string;
@@ -38,266 +49,160 @@ interface ComplianceResult {
   revision_date: string;
 }
 
-type FlowStep = 'upload' | 'analyzing' | 'results';
+type FlowStep = "upload" | "analyzing" | "results";
 
-export function ComplianceCreate({ projectId, projectName, onBack }: ComplianceCreateProps) {
-  const [currentStep, setCurrentStep] = useState<FlowStep>('upload');
+export function ComplianceCreate({
+  projectId,
+  projectName,
+  onBack,
+}: ComplianceCreateProps) {
+  const [currentStep, setCurrentStep] = useState<FlowStep>("upload");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [useCache, setUseCache] = useState(false);
   const [cacheTtl, setCacheTtl] = useState(3600);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
 
-  // File selection handler
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
-    }
-  };
+  const { runCompliance, result, loading, progress, error } = useCompliance();
 
-  // Remove file
-  const removeFile = (index: number) => {
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
-  };
-
-  // Handle form submission
   const handleSubmit = async () => {
     if (selectedFiles.length === 0) return;
 
-    setCurrentStep('analyzing');
-    
-    // Simulate AI analysis progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-      }
-      setAnalysisProgress(Math.min(progress, 100));
-    }, 1000);
+    setCurrentStep("analyzing");
 
-    // Simulate API call (60-90 seconds)
-    setTimeout(() => {
-      clearInterval(interval);
-      setAnalysisProgress(100);
+    // Prepare payload
+    const formData = new FormData();
+    formData.append("projectId", projectId);
+    selectedFiles.forEach((file) => formData.append("files", file));
+    formData.append("useCache", JSON.stringify(useCache));
+    formData.append("cacheTtl", cacheTtl.toString());
 
-      // Mock compliance result
-      const mockResult: ComplianceResult = {
-        compliance_id: Math.floor(Math.random() * 10000),
-        project_id: parseInt(projectId),
-        compliance_result: {
-          decision: 'rejected',
-          overview: {
-            total_violations: 8,
-            compliance_score: 78,
-            critical_issues: 2,
-          },
-          violations: [
-            {
-              code: 'R302.1',
-              description: 'Minimum ceiling height of 7 feet required',
-              severity: 'critical',
-              location: 'Floor Plan - Level 1, Room 103',
-              found: '6 feet (1.83m)',
-              required: '7 feet (2.13m)',
-              fix: 'Increase ceiling height to meet minimum requirements of 7 feet (2.13m)',
-              code_reference: 'R302.1',
-            },
-            {
-              code: 'R311.7.5.1',
-              description: 'Stair riser height exceeds maximum of 7.75 inches',
-              severity: 'critical',
-              location: 'Floor Plan - Staircase between Level 1 and 2',
-              found: '8 inches (203.2mm)',
-              required: '7.75 inches (196.85mm)',
-              fix: 'Reduce riser height to maximum 7.75 inches (196.85mm)',
-              code_reference: 'R311.7.5.1',
-            },
-            {
-              code: 'R308.4',
-              description: 'Glazing not marked as safety glazing in hazardous location',
-              severity: 'major',
-              location: 'Floor Plan - Level 1, Adjacent to main entrance',
-              found: 'Standard glazing',
-              required: 'Safety glazing or protective barriers',
-              fix: 'Install safety glazing or add protective barriers',
-              code_reference: 'R308.4',
-            },
-            {
-              code: 'R310.1',
-              description: 'Emergency escape window size insufficient',
-              severity: 'major',
-              location: 'Floor Plan - Level 2, Bedroom 2',
-              found: '4.5 sq ft',
-              required: '5.7 sq ft',
-              fix: 'Increase window opening area to minimum 5.7 sq ft',
-              code_reference: 'R310.1',
-            },
-            {
-              code: 'R315.1',
-              description: 'Smoke alarm placement not specified',
-              severity: 'minor',
-              location: 'Floor Plan - All bedrooms',
-              found: 'No smoke alarm locations specified',
-              required: 'Smoke alarm locations on plans per code requirements',
-              fix: 'Add smoke alarm locations on plans per code requirements',
-              code_reference: 'R315.1',
-            },
-            {
-              code: 'R501.3',
-              description: 'Roof drainage system incomplete',
-              severity: 'minor',
-              location: 'Roof Plan - Southern section',
-              found: 'Incomplete roof drainage details',
-              required: 'Complete roof drainage details including gutters and downspouts',
-              fix: 'Complete roof drainage details including gutters and downspouts',
-              code_reference: 'R501.3',
-            },
-          ],
-          compliant_items: [
-            {
-              code: 'R303.1',
-              description: 'Habitable room areas meet minimum requirements',
-              location: 'Floor Plan - All levels',
-            },
-            {
-              code: 'R305.1',
-              description: 'Minimum ceiling heights compliant',
-              location: 'Floor Plan - Level 1, Living areas',
-            },
-            {
-              code: 'R311.3',
-              description: 'Landings at exterior doors meet requirements',
-              location: 'Floor Plan - All exterior doors',
-            },
-            {
-              code: 'R325.1',
-              description: 'Garage separation from dwelling meets fire rating requirements',
-              location: 'Floor Plan - Level 1, Garage',
-            },
-          ],
-        },
-        revision_date: new Date().toISOString(),
-      };
+    await runCompliance(formData);
 
-      setComplianceResult(mockResult);
-      
-      setTimeout(() => {
-        setCurrentStep('results');
-      }, 500);
-    }, Math.random() * 15000 + 60000); // 60-75 seconds
+    if (result) {
+      setCurrentStep("results");
+    }
   };
 
   return (
     <div className="h-full flex flex-col bg-[#0F172A]">
-      {/* Header */}
-      <div className="border-b border-[#0B67FF]/20 bg-[#1E293B] px-6 py-4">
-        <div className="flex items-center gap-4">
-          <motion.button
-            onClick={onBack}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-2 hover:bg-[#0B67FF]/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft size={20} className="text-[#0B67FF]" />
-          </motion.button>
-          <div>
-            <h2 className="text-[#F8FAFC]">New Compliance Check</h2>
-            <p className="text-[#6B7280]">{projectName}</p>
-          </div>
-        </div>
+      {/* Header, Step Indicator, Content */}
 
-        {/* Progress Steps */}
-        <div className="flex items-center gap-4 mt-6">
-          <StepIndicator 
-            step={1} 
-            label="Upload Plans" 
-            active={currentStep === 'upload'} 
-            completed={currentStep !== 'upload'}
-          />
-          <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
-            <motion.div 
-              className="h-full bg-[#0B67FF]"
-              initial={{ width: 0 }}
-              animate={{ width: currentStep !== 'upload' ? '100%' : '0%' }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-          <StepIndicator 
-            step={2} 
-            label="AI Analysis" 
-            active={currentStep === 'analyzing'} 
-            completed={currentStep === 'results'}
-          />
-          <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
-            <motion.div 
-              className="h-full bg-[#0B67FF]"
-              initial={{ width: 0 }}
-              animate={{ width: currentStep === 'results' ? '100%' : '0%' }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-          <StepIndicator 
-            step={3} 
-            label="Results" 
-            active={currentStep === 'results'} 
-            completed={false}
-          />
+      <div className="flex items-center gap-4">
+        <motion.button
+          onClick={onBack}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="p-2 hover:bg-[#0B67FF]/10 rounded-lg transition-colors"
+        >
+          <ArrowLeft size={20} className="text-[#0B67FF]" />
+        </motion.button>
+        <div>
+          <h2 className="text-[#F8FAFC]">New Compliance Check</h2>
+          <p className="text-[#6B7280]">{projectName}</p>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Progress Steps */}
+      <div className="flex items-center gap-4 mt-6">
+        <StepIndicator
+          step={1}
+          label="Upload Plans"
+          active={currentStep === "upload"}
+          completed={currentStep !== "upload"}
+        />
+        <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
+          <motion.div
+            className="h-full bg-[#0B67FF]"
+            initial={{ width: 0 }}
+            animate={{ width: currentStep !== "upload" ? "100%" : "0%" }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+        <StepIndicator
+          step={2}
+          label="AI Analysis"
+          active={currentStep === "analyzing"}
+          completed={currentStep === "results"}
+        />
+        <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
+          <motion.div
+            className="h-full bg-[#0B67FF]"
+            initial={{ width: 0 }}
+            animate={{ width: currentStep === "results" ? "100%" : "0%" }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+        <StepIndicator
+          step={3}
+          label="Results"
+          active={currentStep === "results"}
+          completed={false}
+        />
+      </div>
       <div className="flex-1 overflow-y-auto p-6">
-        <AnimatePresence mode="wait">
-          {currentStep === 'upload' && (
-            <UploadStep
-              selectedFiles={selectedFiles}
-              useCache={useCache}
-              cacheTtl={cacheTtl}
-              onFileChange={handleFileChange}
-              onRemoveFile={removeFile}
-              onUseCacheChange={setUseCache}
-              onCacheTtlChange={setCacheTtl}
-              onSubmit={handleSubmit}
-            />
-          )}
+        {currentStep === "upload" && (
+          <UploadStep
+            selectedFiles={selectedFiles}
+            useCache={useCache}
+            cacheTtl={cacheTtl}
+            onFileChange={(e) =>
+              setSelectedFiles(e.target.files ? Array.from(e.target.files) : [])
+            }
+            onRemoveFile={(i) =>
+              setSelectedFiles((prev) => prev.filter((_, index) => index !== i))
+            }
+            onUseCacheChange={setUseCache}
+            onCacheTtlChange={setCacheTtl}
+            onSubmit={handleSubmit}
+          />
+        )}
 
-          {currentStep === 'analyzing' && (
-            <AnalyzingStep progress={analysisProgress} />
-          )}
+        {currentStep === "analyzing" && <AnalyzingStep progress={progress} />}
 
-          {currentStep === 'results' && complianceResult && (
-            <ResultsStep result={complianceResult} />
-          )}
-        </AnimatePresence>
+        {currentStep === "results" && result && <ResultsStep result={result} />}
+
+        {error && (
+          <p className="text-red-500 mt-4 text-center">Error: {error}</p>
+        )}
       </div>
     </div>
   );
 }
 
 // Step Indicator Component
-function StepIndicator({ step, label, active, completed }: { 
-  step: number; 
-  label: string; 
-  active: boolean; 
+function StepIndicator({
+  step,
+  label,
+  active,
+  completed,
+}: {
+  step: number;
+  label: string;
+  active: boolean;
   completed: boolean;
 }) {
   return (
     <div className="flex items-center gap-3">
       <motion.div
         className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-          active 
-            ? 'bg-[#0B67FF] text-white' 
-            : completed 
-            ? 'bg-[#10B981] text-white' 
-            : 'bg-[#1E293B] text-[#6B7280] border border-[#0B67FF]/20'
+          active
+            ? "bg-[#0B67FF] text-white"
+            : completed
+            ? "bg-[#10B981] text-white"
+            : "bg-[#1E293B] text-[#6B7280] border border-[#0B67FF]/20"
         }`}
         whileHover={{ scale: 1.05 }}
       >
         {completed ? <CheckCircle size={20} /> : step}
       </motion.div>
-      <span className={`${active ? 'text-[#0B67FF]' : completed ? 'text-[#10B981]' : 'text-[#6B7280]'}`}>
+      <span
+        className={`${
+          active
+            ? "text-[#0B67FF]"
+            : completed
+            ? "text-[#10B981]"
+            : "text-[#6B7280]"
+        }`}
+      >
         {label}
       </span>
     </div>
@@ -305,15 +210,15 @@ function StepIndicator({ step, label, active, completed }: {
 }
 
 // Upload Step Component
-function UploadStep({ 
-  selectedFiles, 
-  useCache, 
-  cacheTtl, 
-  onFileChange, 
-  onRemoveFile, 
-  onUseCacheChange, 
-  onCacheTtlChange, 
-  onSubmit 
+function UploadStep({
+  selectedFiles,
+  useCache,
+  cacheTtl,
+  onFileChange,
+  onRemoveFile,
+  onUseCacheChange,
+  onCacheTtlChange,
+  onSubmit,
 }: {
   selectedFiles: File[];
   useCache: boolean;
@@ -339,8 +244,12 @@ function UploadStep({
           <label className="block mb-3 text-[#F8FAFC]">Building Plans *</label>
           <label className="border-2 border-dashed border-[#0B67FF]/30 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-[#0B67FF]/50 transition-colors bg-[#0B67FF]/5">
             <Upload size={48} className="text-[#0B67FF] mb-4" />
-            <p className="text-[#F8FAFC] mb-2">Drop files here or click to browse</p>
-            <p className="text-[#6B7280]">Supports PDF, DWG, DXF files up to 50MB</p>
+            <p className="text-[#F8FAFC] mb-2">
+              Drop files here or click to browse
+            </p>
+            <p className="text-[#6B7280]">
+              Supports PDF, DWG, DXF files up to 50MB
+            </p>
             <input
               type="file"
               multiple
@@ -354,7 +263,9 @@ function UploadStep({
         {/* Selected Files */}
         {selectedFiles.length > 0 && (
           <div className="mb-6 space-y-2">
-            <label className="block text-[#F8FAFC] mb-2">Selected Files ({selectedFiles.length})</label>
+            <label className="block text-[#F8FAFC] mb-2">
+              Selected Files ({selectedFiles.length})
+            </label>
             {selectedFiles.map((file, index) => (
               <motion.div
                 key={index}
@@ -366,7 +277,9 @@ function UploadStep({
                   <FileText size={20} className="text-[#0B67FF]" />
                   <div>
                     <p className="text-[#F8FAFC]">{file.name}</p>
-                    <p className="text-[#6B7280]">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="text-[#6B7280]">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
                   </div>
                 </div>
                 <button
@@ -398,9 +311,11 @@ function UploadStep({
           {useCache && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
+              animate={{ opacity: 1, height: "auto" }}
             >
-              <label className="block mb-2 text-[#F8FAFC]">Cache Duration (seconds)</label>
+              <label className="block mb-2 text-[#F8FAFC]">
+                Cache Duration (seconds)
+              </label>
               <input
                 type="number"
                 value={cacheTtl}
@@ -421,8 +336,8 @@ function UploadStep({
           whileTap={{ scale: selectedFiles.length > 0 ? 0.98 : 1 }}
           className={`w-full py-3 rounded-lg transition-all ${
             selectedFiles.length > 0
-              ? 'bg-[#0B67FF] hover:bg-[#0952CC] text-white'
-              : 'bg-[#1E293B] text-[#6B7280] cursor-not-allowed'
+              ? "bg-[#0B67FF] hover:bg-[#0952CC] text-white"
+              : "bg-[#1E293B] text-[#6B7280] cursor-not-allowed"
           }`}
         >
           Start AI Compliance Check
@@ -435,18 +350,21 @@ function UploadStep({
 // Analyzing Step Component
 function AnalyzingStep({ progress }: { progress: number }) {
   const statusMessages = [
-    'Uploading architectural plans...',
-    'Processing CAD files...',
-    'Extracting building dimensions...',
-    'Analyzing compliance requirements...',
-    'Cross-referencing building codes...',
-    'Checking structural integrity...',
-    'Validating safety standards...',
-    'Generating compliance report...',
-    'Finalizing results...',
+    "Uploading architectural plans...",
+    "Processing CAD files...",
+    "Extracting building dimensions...",
+    "Analyzing compliance requirements...",
+    "Cross-referencing building codes...",
+    "Checking structural integrity...",
+    "Validating safety standards...",
+    "Generating compliance report...",
+    "Finalizing results...",
   ];
 
-  const currentMessage = statusMessages[Math.min(Math.floor(progress / 11.1), statusMessages.length - 1)];
+  const currentMessage =
+    statusMessages[
+      Math.min(Math.floor(progress / 11.1), statusMessages.length - 1)
+    ];
 
   return (
     <motion.div
@@ -460,7 +378,7 @@ function AnalyzingStep({ progress }: { progress: number }) {
         <motion.div
           className="inline-block mb-8"
           animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
           <Loader2 size={64} className="text-[#0B67FF]" />
         </motion.div>
@@ -481,7 +399,8 @@ function AnalyzingStep({ progress }: { progress: number }) {
 
         <div className="mt-8 p-4 bg-[#1E293B] rounded-lg">
           <p className="text-[#6B7280]">
-            This usually takes 60-90 seconds. Our AI is analyzing your plans against building codes and regulations.
+            This usually takes 60-90 seconds. Our AI is analyzing your plans
+            against building codes and regulations.
           </p>
         </div>
       </Card>
@@ -491,27 +410,30 @@ function AnalyzingStep({ progress }: { progress: number }) {
 
 // Results Step Component
 function ResultsStep({ result }: { result: ComplianceResult }) {
-  const { decision, overview, violations, compliant_items } = result.compliance_result;
+  const { decision, overview, violations, compliant_items } =
+    result.compliance_result;
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical':
-        return 'text-[#EF4444] bg-[#EF4444]/10';
-      case 'major':
-        return 'text-[#F97316] bg-[#F97316]/10';
-      case 'minor':
-        return 'text-[#F59E0B] bg-[#F59E0B]/10';
+      case "critical":
+        return "text-[#EF4444] bg-[#EF4444]/10";
+      case "major":
+        return "text-[#F97316] bg-[#F97316]/10";
+      case "minor":
+        return "text-[#F59E0B] bg-[#F59E0B]/10";
       default:
-        return 'text-[#6B7280] bg-[#6B7280]/10';
+        return "text-[#6B7280] bg-[#6B7280]/10";
     }
   };
 
   const handleDownloadReport = () => {
-    alert('Download violation report - This will generate a PDF report');
+    alert("Download violation report - This will generate a PDF report");
   };
 
   const handleDownloadCertificate = () => {
-    alert('Download compliance certificate - This will generate a certificate PDF');
+    alert(
+      "Download compliance certificate - This will generate a certificate PDF"
+    );
   };
 
   return (
@@ -521,24 +443,30 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
       exit={{ opacity: 0, y: -20 }}
     >
       {/* Decision Banner */}
-      <Card className={`p-8 mb-8 border-2 ${
-        decision === 'approved' 
-          ? 'border-[#10B981] bg-[#10B981]/5' 
-          : 'border-[#EF4444] bg-[#EF4444]/5'
-      }`}>
+      <Card
+        className={`p-8 mb-8 border-2 ${
+          decision === "approved"
+            ? "border-[#10B981] bg-[#10B981]/5"
+            : "border-[#EF4444] bg-[#EF4444]/5"
+        }`}
+      >
         <div className="text-center">
-          {decision === 'approved' ? (
+          {decision === "approved" ? (
             <>
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: 'spring', duration: 0.6 }}
+                transition={{ type: "spring", duration: 0.6 }}
               >
-                <CheckCircle size={80} className="text-[#10B981] mx-auto mb-4" />
+                <CheckCircle
+                  size={80}
+                  className="text-[#10B981] mx-auto mb-4"
+                />
               </motion.div>
               <h2 className="text-[#10B981] mb-2">APPROVED ✓</h2>
               <p className="text-[#6B7280] mb-6">
-                Your architectural plans meet all building code requirements. Ready to submit to city.
+                Your architectural plans meet all building code requirements.
+                Ready to submit to city.
               </p>
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -554,14 +482,15 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: 'spring', duration: 0.6 }}
+                transition={{ type: "spring", duration: 0.6 }}
               >
                 <X size={80} className="text-[#EF4444] mx-auto mb-4" />
               </motion.div>
               <h2 className="text-[#EF4444] mb-2">REJECTED ✕</h2>
               <p className="text-[#6B7280] mb-6">
-                Your plans have {overview.total_violations} violation{overview.total_violations !== 1 ? 's' : ''} that must be corrected.
-                Review the details below and fix each issue.
+                Your plans have {overview.total_violations} violation
+                {overview.total_violations !== 1 ? "s" : ""} that must be
+                corrected. Review the details below and fix each issue.
               </p>
               <div className="flex items-center justify-center gap-4">
                 <motion.button
@@ -626,7 +555,9 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
             <Calendar size={20} className="text-[#0B67FF]" />
             <div>
               <p className="text-[#6B7280]">Analysis Date</p>
-              <p className="text-[#F8FAFC]">{new Date(result.revision_date).toLocaleDateString()}</p>
+              <p className="text-[#F8FAFC]">
+                {new Date(result.revision_date).toLocaleDateString()}
+              </p>
             </div>
           </div>
         </div>
@@ -653,7 +584,11 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
                     <span className="px-3 py-1 bg-[#0B67FF]/20 text-[#0B67FF] rounded">
                       {violation.code}
                     </span>
-                    <span className={`px-3 py-1 rounded ${getSeverityColor(violation.severity)}`}>
+                    <span
+                      className={`px-3 py-1 rounded ${getSeverityColor(
+                        violation.severity
+                      )}`}
+                    >
                       {violation.severity.toUpperCase()}
                     </span>
                   </div>
@@ -664,11 +599,15 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
                 {/* Found vs Required */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div className="p-3 bg-[#EF4444]/10 rounded border border-[#EF4444]/20">
-                    <p className="text-[#EF4444] mb-1"><strong>Found:</strong></p>
+                    <p className="text-[#EF4444] mb-1">
+                      <strong>Found:</strong>
+                    </p>
                     <p className="text-[#F8FAFC]">{violation.found}</p>
                   </div>
                   <div className="p-3 bg-[#10B981]/10 rounded border border-[#10B981]/20">
-                    <p className="text-[#10B981] mb-1"><strong>Required:</strong></p>
+                    <p className="text-[#10B981] mb-1">
+                      <strong>Required:</strong>
+                    </p>
                     <p className="text-[#F8FAFC]">{violation.required}</p>
                   </div>
                 </div>
@@ -684,7 +623,8 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
                   </p>
                   <p className="text-[#F8FAFC] mb-2">{violation.fix}</p>
                   <p className="text-[#6B7280]">
-                    <strong>Code Reference:</strong> Section {violation.code_reference}
+                    <strong>Code Reference:</strong> Section{" "}
+                    {violation.code_reference}
                   </p>
                 </div>
               </motion.div>

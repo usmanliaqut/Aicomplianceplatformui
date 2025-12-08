@@ -1,43 +1,64 @@
-import { motion } from 'motion/react';
-import { X, Building2, MapPin, User } from 'lucide-react';
-import { useState } from 'react';
+import { motion } from "motion/react";
+import { X, Building2, MapPin, User } from "lucide-react";
+import { useForm, SubmitHandler } from "react-hook-form";
+import { toast } from "react-hot-toast";
+import { useProjects } from "../../hooks/useProjects";
 
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (projectData: any) => void;
 }
 
-const CITIES = [
-  'North Bay Village',
-  'Miami',
-  'Miami Beach'
-];
+interface ProjectFormValues {
+  applicant_name: string;
+  name: string;
+  city: string;
+  location: string;
+  building_type: string;
+}
+
+const CITIES = ["North Bay Village", "Miami", "Miami Beach"];
 
 const BUILDING_TYPES = [
-  'Residential - Single Family',
-  'Residential - Multi Family',
-  'Commercial - Office',
-  'Commercial - Retail',
-  'Commercial - Restaurant',
-  'Mixed Use',
-  'Industrial',
-  'Institutional'
+  "Residential - Single Family",
+  "Residential - Multi Family",
+  "Commercial - Office",
+  "Commercial - Retail",
+  "Commercial - Restaurant",
+  "Mixed Use",
+  "Industrial",
+  "Institutional",
 ];
 
-export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    applicantName: '',
-    city: '',
-    location: '',
-    buildingType: ''
-  });
+export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
+  const { createProjectMutation } = useProjects();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setFormData({ name: '', applicantName: '', city: '', location: '', buildingType: '' });
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<ProjectFormValues>();
+
+  const onSubmit: SubmitHandler<ProjectFormValues> = async (data) => {
+    createProjectMutation.mutate(
+      {
+        applicant_name: data.applicant_name,
+        location: data.location,
+        building_type: data.building_type,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Project created successfully!");
+          reset();
+          onClose();
+        },
+        onError: () => {
+          toast.error("Failed to create project");
+        },
+      }
+    );
   };
 
   if (!isOpen) return null;
@@ -69,7 +90,9 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
               </div>
               <div>
                 <h3>Create New Project</h3>
-                <p className="text-[#6B7280]">Add a new architectural project</p>
+                <p className="text-[#6B7280]">
+                  Add a new architectural project
+                </p>
               </div>
             </div>
             <motion.button
@@ -83,10 +106,13 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
             {/* Applicant Name */}
             <div>
-              <label htmlFor="applicantName" className="block text-[#F8FAFC] mb-2">
+              <label
+                htmlFor="applicant_name"
+                className="block text-[#F8FAFC] mb-2"
+              >
                 Applicant Name <span className="text-[#EF4444]">*</span>
               </label>
               <div className="relative">
@@ -95,15 +121,15 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                 />
                 <input
-                  type="text"
-                  id="applicantName"
-                  value={formData.applicantName}
-                  onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })}
+                  id="applicant_name"
+                  {...register("applicant_name", { required: true })}
                   placeholder="e.g. John Smith"
                   className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC] placeholder:text-[#6B7280] focus:outline-none focus:border-[#0B67FF] transition-colors"
-                  required
                 />
               </div>
+              {errors.applicant_name && (
+                <span className="text-red-500">This field is required</span>
+              )}
             </div>
 
             {/* Project Name */}
@@ -117,18 +143,18 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                 />
                 <input
-                  type="text"
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  {...register("name", { required: true })}
                   placeholder="e.g. Downtown Office Complex"
                   className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC] placeholder:text-[#6B7280] focus:outline-none focus:border-[#0B67FF] transition-colors"
-                  required
                 />
               </div>
+              {errors.name && (
+                <span className="text-red-500">This field is required</span>
+              )}
             </div>
 
-            {/* City (3 cities) */}
+            {/* City */}
             <div>
               <label htmlFor="city" className="block text-[#F8FAFC] mb-2">
                 City <span className="text-[#EF4444]">*</span>
@@ -140,20 +166,20 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
                 />
                 <select
                   id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  {...register("city", { required: true })}
                   className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC] focus:outline-none focus:border-[#0B67FF] transition-colors appearance-none"
-                  required
                 >
                   <option value="">Select city</option>
-                  {CITIES.map(city => (
-                    <option key={city} value={city}>{city}</option>
+                  {CITIES.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
                   ))}
                 </select>
               </div>
-              <p className="text-[#6B7280] mt-2">
-                Building codes specific to selected city will be applied
-              </p>
+              {errors.city && (
+                <span className="text-red-500">This field is required</span>
+              )}
             </div>
 
             {/* Location */}
@@ -167,20 +193,23 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                 />
                 <input
-                  type="text"
                   id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  {...register("location", { required: true })}
                   placeholder="e.g. 123 Ocean Drive"
                   className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC] placeholder:text-[#6B7280] focus:outline-none focus:border-[#0B67FF] transition-colors"
-                  required
                 />
               </div>
+              {errors.location && (
+                <span className="text-red-500">This field is required</span>
+              )}
             </div>
 
             {/* Building Type */}
             <div>
-              <label htmlFor="buildingType" className="block text-[#F8FAFC] mb-2">
+              <label
+                htmlFor="building_type"
+                className="block text-[#F8FAFC] mb-2"
+              >
                 Building Type <span className="text-[#EF4444]">*</span>
               </label>
               <div className="relative">
@@ -189,18 +218,21 @@ export function NewProjectModal({ isOpen, onClose, onSubmit }: NewProjectModalPr
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                 />
                 <select
-                  id="buildingType"
-                  value={formData.buildingType}
-                  onChange={(e) => setFormData({ ...formData, buildingType: e.target.value })}
+                  id="building_type"
+                  {...register("building_type", { required: true })}
                   className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC] focus:outline-none focus:border-[#0B67FF] transition-colors appearance-none"
-                  required
                 >
                   <option value="">Select building type</option>
-                  {BUILDING_TYPES.map(type => (
-                    <option key={type} value={type}>{type}</option>
+                  {BUILDING_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
                   ))}
                 </select>
               </div>
+              {errors.building_type && (
+                <span className="text-red-500">This field is required</span>
+              )}
             </div>
 
             {/* Action Buttons */}
