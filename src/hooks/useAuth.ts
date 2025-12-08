@@ -19,8 +19,11 @@ export const useAuth = () => {
   // Login mutation: only store token
   const login = useMutation({
     mutationFn: (payload: LoginPayload) => loginUser(payload),
-    onSuccess: ({ token }) => {
-      localStorage.setItem("token", token); // save token
+    onSuccess: ({ access_token }) => {
+   
+     localStorage.setItem("token", access_token); // save token
+  
+  
       toast.success("Logged in successfully!");
       navigate("/dashboard");
     },
@@ -32,8 +35,8 @@ export const useAuth = () => {
   // Register mutation: only store token
   const register = useMutation({
     mutationFn: (payload: RegisterPayload) => registerUser(payload),
-    onSuccess: ({ token }) => {
-      localStorage.setItem("token", token);
+    onSuccess: ({ access_token }) => {
+      localStorage.setItem("token", access_token);
       toast.success("Account created successfully!");
       navigate("/dashboard");
     },

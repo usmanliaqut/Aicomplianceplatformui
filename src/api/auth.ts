@@ -15,15 +15,15 @@ export interface RegisterPayload {
 
 export const loginUser = async (
   payload: LoginPayload
-): Promise<{ user: User; token: string }> => {
+): Promise<{ user: User; access_token: string }> => {
   const { data } = await api.post("/auth/login", payload);
   return data;
 };
 
 export const registerUser = async (
   payload: RegisterPayload
-): Promise<{ user: User; token: string }> => {
-  const { data } = await api.post("/auth/register", payload);
+): Promise<{ user: User; access_token: string }> => {
+  const { data } = await api.post("/auth/signup", payload);
   return data;
 };
 

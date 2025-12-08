@@ -13,15 +13,17 @@ const api = axios.create({
 
 // Attach token ONLY if it's not a login or register request
 api.interceptors.request.use((config) => {
-  const user: User | null = JSON.parse(localStorage.getItem("user") || "null");
+  
+  const token = localStorage.getItem("token");
+ 
 
-  if (
-    user?.token &&
+if (
+    token && // Check if token exists and is non-empty
     config.url &&
     !config.url.includes("/auth/login") &&
-    !config.url.includes("/auth/register")
+    !config.url.includes("/auth/signup")
   ) {
-    config.headers.Authorization = `Bearer ${user.token}`;
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;

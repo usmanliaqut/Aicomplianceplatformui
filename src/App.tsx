@@ -6,12 +6,15 @@ import { LandingPage } from "./components/LandingPage";
 import { Dashboard } from "./components/Dashboard";
 import { Login } from "./components/auth/Login";
 import { Register } from "./components/auth/Register";
+import { Toaster } from "react-hot-toast";
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
         <div className="min-h-screen bg-[#0F172A]">
+          <Toaster position="top-center" reverseOrder={false} />
+
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
