@@ -2,19 +2,17 @@ import { motion } from 'motion/react';
 import { Building2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-interface LoginProps {
-  onNavigate: (page: string) => void;
-}
-
-export function Login({ onNavigate }: LoginProps) {
+export function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Navigate to dashboard on login
-    onNavigate('dashboard');
+    navigate('/dashboard');
   };
 
   return (
@@ -158,7 +156,7 @@ export function Login({ onNavigate }: LoginProps) {
           <p className="text-center text-[#6B7280] mt-6">
             Don&apos;t have an account?{' '}
             <button
-              onClick={() => onNavigate('register')}
+              onClick={() => navigate('/register')}
               className="text-[#0B67FF] hover:text-[#0952CC] transition-colors"
             >
               Sign up

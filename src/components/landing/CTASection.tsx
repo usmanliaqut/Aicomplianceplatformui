@@ -1,8 +1,11 @@
 import { motion } from 'motion/react';
 import { Button } from '../ui/Button';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function CTASection() {
+  const navigate = useNavigate();
+
   return (
     <section className="py-24 px-4 bg-gradient-to-br from-[#0B67FF]/10 via-[#06B6D4]/10 to-[#F97316]/10 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -55,7 +58,7 @@ export function CTASection() {
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
           >
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => navigate('/register')}>
               Get Started Free <ArrowRight size={20} className="inline ml-2" />
             </Button>
             <Button variant="secondary">Schedule a Demo</Button>

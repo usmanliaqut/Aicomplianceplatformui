@@ -6,14 +6,10 @@ import { CTASection } from './landing/CTASection';
 import { Footer } from './landing/Footer';
 import { Navbar } from './Navbar';
 
-interface LandingPageProps {
-  onNavigate: (page: string) => void;
-}
-
-export function LandingPage({ onNavigate }: LandingPageProps) {
+export function LandingPage() {
   return (
     <div className="bg-[#0F172A]">
-      <Navbar onNavigate={onNavigate} currentPage="landing" />
+      <Navbar />
       <Hero />
       <Features />
       <HowItWorks />

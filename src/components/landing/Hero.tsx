@@ -1,8 +1,11 @@
 import { motion } from 'motion/react';
 import { Button } from '../ui/Button';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function Hero() {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4">
       {/* Animated Background */}
@@ -55,7 +58,7 @@ export function Hero() {
           </p>
           
           <div className="flex flex-wrap gap-4">
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => navigate('/register')}>
               Get Started <ArrowRight size={20} className="inline ml-2" />
             </Button>
             <Button variant="ghost">Learn More</Button>

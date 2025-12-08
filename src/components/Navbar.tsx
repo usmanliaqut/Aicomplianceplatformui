@@ -1,13 +1,13 @@
 import { motion } from 'motion/react';
 import { Building2 } from 'lucide-react';
 import { Button } from './ui/Button';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-interface NavbarProps {
-  onNavigate: (page: string) => void;
-  currentPage: string;
-}
+export function Navbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isLanding = location.pathname === '/';
 
-export function Navbar({ onNavigate, currentPage }: NavbarProps) {
   return (
     <motion.nav
       initial={{ y: -100 }}
@@ -17,7 +17,7 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <motion.button
-          onClick={() => onNavigate('landing')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           whileHover={{ scale: 1.05 }}
         >
@@ -27,20 +27,16 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
 
         {/* Center Navigation */}
         <div className="hidden md:flex items-center gap-6">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate('landing');
-            }}
+          <button
+            onClick={() => navigate('/')}
             className={`transition-colors ${
-              currentPage === 'landing'
+              isLanding
                 ? 'text-[#0B67FF]'
                 : 'text-[#6B7280] hover:text-[#F8FAFC]'
             }`}
           >
             Home
-          </a>
+          </button>
           <a href="#" className="text-[#6B7280] hover:text-[#F8FAFC] transition-colors">
             Features
           </a>
@@ -56,13 +52,13 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
-            onClick={() => onNavigate('login')}
+            onClick={() => navigate('/login')}
           >
             Login
           </Button>
           <Button
             variant="primary"
-            onClick={() => onNavigate('register')}
+            onClick={() => navigate('/register')}
           >
             Sign Up
           </Button>
