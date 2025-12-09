@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { createCompliance, CreateCompliancePayload } from "../api/compliance";
+import { useQuery } from "@tanstack/react-query";
+import {
+  createCompliance,
+  CreateCompliancePayload,
+  getCompliancesByProject,
+  getComplianceRecord,
+} from "../api/compliance";
 import { ComplianceResult } from "../types/compliance";
 
+// Hook for running a single compliance check (upload flow)
 export function useCompliance() {
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,4 +39,25 @@ export function useCompliance() {
   };
 
   return { runCompliance, result, loading, progress, error };
+}
+
+// Hook for listing compliances for a project (similar to useProjects)
+export function useCompliances(projectId: number) {
+  const query = useQuery<ComplianceResult[]>({
+    queryKey: ["compliances", projectId],
+    queryFn: () => getCompliancesByProject(projectId),
+    enabled: !!projectId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return query;
+}
+
+// Hook for a single compliance detail record
+export function useComplianceRecord(complianceId: number | null) {
+  return useQuery({
+    queryKey: ["complianceRecord", complianceId],
+    queryFn: () => getComplianceRecord(complianceId as number),
+    enabled: !!complianceId,
+  });
 }

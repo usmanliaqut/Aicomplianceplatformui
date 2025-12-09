@@ -31,3 +31,20 @@ export const createCompliance = async (
 
   return data;
 };
+
+// List compliances for a given project
+export const getCompliancesByProject = async (
+  projectId: number
+): Promise<ComplianceResult[]> => {
+  const { data } = await api.get<ComplianceResult[]>(`/compliance/${projectId}`);
+
+  return data;
+};
+
+// Get a single compliance record by its ID
+export const getComplianceRecord = async (
+  complianceId: number
+): Promise<any> => {
+  const { data } = await api.get(`/compliance/record/${complianceId}`);
+  return data;
+};

@@ -1,12 +1,15 @@
 import { motion } from 'motion/react';
-import { Building2 } from 'lucide-react';
+import { Building2, CloudCog } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useUserStore from '../store/useUserStore';
 
 export function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const isLanding = location.pathname === '/';
+  const user = useUserStore((s) => s.user);
+  const logout = useUserStore((s) => s.logout);
 
   return (
     <motion.nav
@@ -50,18 +53,29 @@ export function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/login')}
-          >
-            Login
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => navigate('/register')}
-          >
-            Sign Up
-          </Button>
+          {user ? (
+            <Button
+              variant="primary"
+              onClick={() => navigate('/dashboard')}
+            >
+              Go to Dashboard
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/login')}
+              >
+                Login
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/register')}
+              >
+                Sign Up
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </motion.nav>

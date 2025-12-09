@@ -1,20 +1,18 @@
 import { motion } from 'motion/react';
 import { LayoutDashboard, FolderKanban, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-
-interface SidebarProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const menuItems = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'projects', label: 'Projects', icon: FolderKanban },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
+  { id: 'projects', label: 'Projects', icon: FolderKanban, path: '/dashboard/projects' },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/dashboard/settings' },
 ];
 
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <motion.div
@@ -34,12 +32,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       <nav className="py-6">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id;
+          const isActive =
+            item.path === '/dashboard'
+              ? location.pathname === '/dashboard'
+              : location.pathname.startsWith(item.path);
           
           return (
             <motion.button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
+              onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-6 py-3 transition-colors relative ${
                 isActive
                   ? 'text-[#0B67FF] bg-[#0B67FF]/10'

@@ -1,7 +1,19 @@
-import { Building2, Bell, ChevronDown } from 'lucide-react';
+import { Building2, Bell } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import useUserStore from '../../store/useUserStore';
 
 export function Topbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = useUserStore((s) => s.user);
+  const logout = useUserStore((s) => s.logout);
+
+  const isActive = (path: string) =>
+    path === '/dashboard'
+      ? location.pathname === '/dashboard'
+      : location.pathname.startsWith(path);
+
   return (
     <div className="bg-[#1E293B] border-b border-[#0B67FF]/20 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
       {/* Logo */}
@@ -12,18 +24,42 @@ export function Topbar() {
 
       {/* Center Navigation */}
       <nav className="hidden md:flex items-center gap-6">
-        <a href="#" className="text-[#F8FAFC] hover:text-[#0B67FF] transition-colors">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className={`transition-colors ${
+            isActive('/dashboard')
+              ? 'text-[#F8FAFC]'
+              : 'text-[#6B7280] hover:text-[#F8FAFC]'
+          }`}
+        >
           Dashboard
-        </a>
-        <a href="#" className="text-[#6B7280] hover:text-[#F8FAFC] transition-colors">
+        </button>
+        <button
+          onClick={() => navigate('/dashboard/projects')}
+          className={`transition-colors ${
+            isActive('/dashboard/projects')
+              ? 'text-[#F8FAFC]'
+              : 'text-[#6B7280] hover:text-[#F8FAFC]'
+          }`}
+        >
           Projects
-        </a>
-        <a href="#" className="text-[#6B7280] hover:text-[#F8FAFC] transition-colors">
+        </button>
+        <button
+          disabled
+          className="transition-colors text-[#6B7280] cursor-not-allowed"
+        >
           Analytics
-        </a>
-        <a href="#" className="text-[#6B7280] hover:text-[#F8FAFC] transition-colors">
+        </button>
+        <button
+          onClick={() => navigate('/dashboard/settings')}
+          className={`transition-colors ${
+            isActive('/dashboard/settings')
+              ? 'text-[#F8FAFC]'
+              : 'text-[#6B7280] hover:text-[#F8FAFC]'
+          }`}
+        >
           Settings
-        </a>
+        </button>
       </nav>
 
       {/* Right Actions */}
@@ -38,19 +74,33 @@ export function Topbar() {
           <div className="absolute top-1 right-1 w-2 h-2 bg-[#EF4444] rounded-full" />
         </motion.button>
 
-        {/* Profile */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#0B67FF]/10 transition-colors"
-        >
-          <img
-            src="https://images.unsplash.com/photo-1581065178047-8ee15951ede6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMHByb2Zlc3Npb25hbCUyMHBvcnRyYWl0fGVufDF8fHx8MTc2NTAwOTUyOHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-            alt="Profile"
-            className="w-8 h-8 rounded-full object-cover"
-          />
-          <span className="hidden md:block text-[#F8FAFC]">Sarah M.</span>
-          <ChevronDown size={16} className="text-[#6B7280]" />
-        </motion.button>
+        {user && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0F172A] border border-[#0B67FF]/30">
+              <div className="w-8 h-8 rounded-full bg-[#0B67FF]/20 flex items-center justify-center text-xs font-medium text-[#0B67FF]">
+                {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || '?' }
+              </div>
+              <div className="hidden sm:flex flex-col items-start">
+                <span className="text-sm text-[#F8FAFC] leading-tight">
+                  {user.full_name || user.email}
+                </span>
+                <span className="text-xs text-[#6B7280] leading-tight">
+                  {user.email}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                localStorage.removeItem('token');
+                navigate('/login');
+              }}
+              className="text-xs md:text-sm text-[#FCA5A5] hover:text-[#F87171]"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

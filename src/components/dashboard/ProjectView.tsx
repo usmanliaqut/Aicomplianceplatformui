@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ComplianceCreate } from "./ComplianceCreate";
+import { ComplianceDetail } from "./ComplianceDetail";
+import { useCompliances } from "../../hooks/useCompliance";
 
 interface ProjectViewProps {
   project: any;
@@ -24,63 +26,38 @@ interface ProjectViewProps {
 
 export function ProjectView({ project, onBack }: ProjectViewProps) {
   console.log("project", project);
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "compliance" | "documents"
-  >("overview");
   const [showComplianceCreate, setShowComplianceCreate] = useState(false);
-  const [compliances, setCompliances] = useState([
-    {
-      id: 1,
-      fileName: "Floor_Plans_v1.pdf",
-      uploadDate: "2024-01-15",
-      status: "approved",
-      score: 98,
-      checks: [
-        {
-          name: "Zoning Compliance",
-          status: "passed",
-          message: "Meets all local zoning requirements",
-        },
-        {
-          name: "Building Height",
-          status: "passed",
-          message: "Within 150ft height limit",
-        },
-        {
-          name: "Fire Safety",
-          status: "passed",
-          message: "All fire exits compliant",
-        },
-        {
-          name: "ADA Accessibility",
-          status: "warning",
-          message: "Requires additional ramp",
-        },
-      ],
-    },
-    {
-      id: 2,
-      fileName: "Site_Survey_Updated.dwg",
-      uploadDate: "2024-01-14",
-      status: "pending",
-      score: 67,
-      checks: [],
-    },
-  ]);
+  const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(
+    null
+  );
+  const { data, isLoading, error } = useCompliances(project.project_id);
 
-  const handleCreateCompliance = (complianceData: any) => {
-    const newCompliance = {
-      id: compliances.length + 1,
-      fileName: complianceData.file.name,
-      uploadDate: new Date().toISOString().split("T")[0],
-      status: "pending",
-      score: 0,
-      checks: [],
-    };
+  // Map API compliance results to the UI shape used below
+  const compliances = useMemo(
+    () =>
+      (data || []).map((item) => {
+        const detail = item.compliance_result;
+        const decision = detail?.decision;
 
-    setCompliances([newCompliance, ...compliances]);
-    setShowComplianceCreate(false);
-  };
+        // Derive a simple status string for the UI
+        const status =
+          decision === "approved"
+            ? "approved"
+            : decision === "rejected"
+            ? "rejected"
+            : "pending";
+
+        return {
+          id: item.compliance_id,
+          fileName: `Compliance #${item.compliance_id}`,
+          uploadDate: item.revision_date?.split("T")[0] || "",
+          status,
+          score: detail?.overview?.compliance_score ?? 0,
+          checks: [] as { name: string; status: string; message: string }[],
+        };
+      }),
+    [data]
+  );
 
   const statusConfig = {
     approved: { color: "#10B981", label: "Approved", bg: "#10B981" },
@@ -139,6 +116,16 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
         projectId={project.project_id}
         projectName={project.applicant_name}
         onBack={() => setShowComplianceCreate(false)}
+      />
+    );
+  }
+
+  // Show compliance detail page when a compliance is selected
+  if (selectedComplianceId !== null) {
+    return (
+      <ComplianceDetail
+        complianceId={selectedComplianceId}
+        onBack={() => setSelectedComplianceId(null)}
       />
     );
   }
@@ -203,79 +190,33 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
         </Card>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content: Compliance only */}
       <div className="space-y-6">
-        {/* Tabs */}
         <Card>
-          <div className="flex gap-1 border-b border-[#0B67FF]/20">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-6 py-3 transition-all ${
-                activeTab === "overview"
-                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
-                  : "text-[#6B7280] hover:text-[#F8FAFC]"
-              }`}
+          <div className="flex items-center justify-between mb-6">
+            <h3>Compliance Checks ({compliances.length})</h3>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowComplianceCreate(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#0B67FF] hover:bg-[#0B67FF]/90 text-white rounded-lg transition-colors"
             >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("compliance")}
-              className={`px-6 py-3 transition-all flex items-center gap-2 ${
-                activeTab === "compliance"
-                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
-                  : "text-[#6B7280] hover:text-[#F8FAFC]"
-              }`}
-            >
-              <CheckCircle2 size={18} />
-              Compliance
-            </button>
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={`px-6 py-3 transition-all flex items-center gap-2 ${
-                activeTab === "documents"
-                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
-                  : "text-[#6B7280] hover:text-[#F8FAFC]"
-              }`}
-            >
-              <FileText size={18} />
-              Documents
-            </button>
+              <Plus size={18} />
+              <span>New Compliance</span>
+            </motion.button>
           </div>
-        </Card>
-
-        {/* Overview Tab */}
-        {activeTab === "overview" && (
-          <>
-            {/* Project Description */}
-            <Card>
-              <h3 className="mb-4">Project Description</h3>
-              <p className="text-[#6B7280] leading-relaxed">
-                A modern office complex featuring sustainable design principles
-                and state-of-the-art amenities. The project includes a 12-story
-                main building with ground-floor retail spaces, underground
-                parking, and landscaped outdoor areas. The design emphasizes
-                energy efficiency, natural lighting, and employee wellness with
-                integrated green spaces and recreational facilities.
-              </p>
-            </Card>
-          </>
-        )}
-
-        {/* Compliance Tab */}
-        {activeTab === "compliance" && (
-          <Card>
-            <div className="flex items-center justify-between mb-6">
-              <h3>Compliance Checks ({compliances.length})</h3>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowComplianceCreate(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#0B67FF] hover:bg-[#0B67FF]/90 text-white rounded-lg transition-colors"
-              >
-                <Plus size={18} />
-                <span>New Compliance</span>
-              </motion.button>
+          {isLoading && (
+            <div className="text-center py-8 text-[#6B7280]">
+              <Clock size={24} className="mx-auto mb-2" />
+              <p>Loading compliance checks...</p>
             </div>
+          )}
+          {error && !isLoading && (
+            <div className="text-center py-8 text-red-400">
+              Failed to load compliance checks
+            </div>
+          )}
+          {!isLoading && !error && (
             <div className="space-y-4">
               {compliances.map((compliance, index) => {
                 const complianceStatus =
@@ -286,7 +227,8 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="p-4 bg-[#0F172A] rounded-lg border border-[#0B67FF]/10"
+                    className="p-4 bg-[#0F172A] rounded-lg border border-[#0B67FF]/10 cursor-pointer hover:border-[#0B67FF]/40"
+                    onClick={() => setSelectedComplianceId(compliance.id)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 flex-1">
@@ -384,47 +326,8 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                 </div>
               )}
             </div>
+          )}
           </Card>
-        )}
-
-        {/* Documents Tab */}
-        {activeTab === "documents" && (
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3>Project Documents</h3>
-              <Button variant="secondary" size="sm">
-                <Upload size={16} className="mr-2" />
-                Upload New
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {documents.map((doc, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-4 bg-[#0F172A] rounded-lg border border-[#0B67FF]/10 hover:border-[#0B67FF]/30 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#0B67FF]/20 rounded-lg flex items-center justify-center">
-                      <FileText size={20} className="text-[#0B67FF]" />
-                    </div>
-                    <div>
-                      <p className="text-[#F8FAFC]">{doc.name}</p>
-                      <p className="text-[#6B7280]">
-                        {doc.size} • Uploaded {doc.uploadedDate}
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <Download size={16} />
-                  </Button>
-                </motion.div>
-              ))}
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   );
