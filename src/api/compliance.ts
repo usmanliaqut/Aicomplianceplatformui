@@ -5,14 +5,14 @@ export interface CreateCompliancePayload {
   projectId: number;
   use_cache?: boolean;
   cache_ttl?: number;
-  files: File[];
+  file: File; // Only one file (API expects single "file")
 }
 
 export const createCompliance = async (
   payload: CreateCompliancePayload
 ): Promise<ComplianceResult> => {
   const formData = new FormData();
-  payload.files.forEach((file) => formData.append("files", file));
+  formData.append("file", payload.file); // Must be "file"
 
   const query = new URLSearchParams({
     use_cache: (payload.use_cache ?? true).toString(),
@@ -20,8 +20,13 @@ export const createCompliance = async (
   });
 
   const { data } = await api.post<ComplianceResult>(
-    `/compliance/${payload.projectId}?${query.toString()}`,
-    formData
+    `/compliance/check/${payload.projectId}?${query.toString()}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
   );
 
   return data;

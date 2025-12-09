@@ -10,9 +10,18 @@ import {
   AlertCircle,
   Calendar,
   Hash,
+  ShieldAlert,
+  CheckCircle2,
+  BookOpen,
+  Info,
+  ImageIcon,
+  ExternalLink,
+  Download,
+  RefreshCw,
 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { useCompliance } from "../../hooks/useCompliance";
+import { Button } from "../ui/Button";
 
 interface ComplianceCreateProps {
   projectId: string;
@@ -61,6 +70,8 @@ export function ComplianceCreate({
   const [useCache, setUseCache] = useState(false);
   const [cacheTtl, setCacheTtl] = useState(3600);
 
+  console.log("projectId", projectId);
+
   const { runCompliance, result, loading, progress, error } = useCompliance();
 
   const handleSubmit = async () => {
@@ -68,22 +79,25 @@ export function ComplianceCreate({
 
     setCurrentStep("analyzing");
 
-    // Prepare payload
-    const formData = new FormData();
-    formData.append("projectId", projectId);
-    selectedFiles.forEach((file) => formData.append("files", file));
-    formData.append("useCache", JSON.stringify(useCache));
-    formData.append("cacheTtl", cacheTtl.toString());
+    try {
+      // Only support the first file (API expects a single 'file')
+      const payload = {
+        projectId: Number(projectId),
+        file: selectedFiles[0],
+        use_cache: useCache,
+        cache_ttl: cacheTtl,
+      };
 
-    await runCompliance(formData);
+      await runCompliance(payload);
 
-    if (result) {
       setCurrentStep("results");
+    } catch (err) {
+      console.error(err);
     }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0F172A]">
+    <div className="h-full flex flex-col bg-[#0F172A] px-8">
       {/* Header, Step Indicator, Content */}
 
       <div className="flex items-center gap-4">
@@ -96,7 +110,7 @@ export function ComplianceCreate({
           <ArrowLeft size={20} className="text-[#0B67FF]" />
         </motion.button>
         <div>
-          <h2 className="text-[#F8FAFC]">New Compliance Check</h2>
+          <h2 className="text-[#F8FAFC]">New Compliance Check </h2>
           <p className="text-[#6B7280]">{projectName}</p>
         </div>
       </div>
@@ -409,31 +423,68 @@ function AnalyzingStep({ progress }: { progress: number }) {
 }
 
 // Results Step Component
-function ResultsStep({ result }: { result: ComplianceResult }) {
-  const { decision, overview, violations, compliant_items } =
-    result.compliance_result;
+// Results Step Component
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "text-[#EF4444] bg-[#EF4444]/10";
-      case "major":
-        return "text-[#F97316] bg-[#F97316]/10";
-      case "minor":
-        return "text-[#F59E0B] bg-[#F59E0B]/10";
+function ResultsStep({ result }: { result: any }) {
+  const { compliance_result, compliance_id, revision_date, project_id } =
+    result;
+  const {
+    approved,
+    score,
+    confidence,
+    summary,
+    violations,
+    text_based_findings,
+    image_based_findings,
+    detailed_analysis,
+    recommendations,
+    relevant_sections,
+  } = compliance_result;
+
+  const tabs = [
+    { id: "detailed", label: "Detailed Analysis", icon: Info },
+    { id: "findings", label: "Findings", icon: FileText },
+    {
+      id: "violations",
+      label: "Violations",
+      icon: ShieldAlert,
+      count: violations.length,
+    },
+    {
+      id: "recommendations",
+      label: "Recommendations",
+      icon: CheckCircle2,
+      count: recommendations.length,
+    },
+    { id: "codes", label: "Code References", icon: BookOpen },
+  ];
+
+  const decision = approved ? "Approved" : "Conditional Approval";
+
+  const [activeTab, setActiveTab] = useState("Detailed Analysis");
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "compliant":
+        return "text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20";
+      case "non-compliant":
+        return "text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/20";
       default:
-        return "text-[#6B7280] bg-[#6B7280]/10";
+        return "text-[#94A3B8] bg-[#94A3B8]/10 border-[#94A3B8]/20";
     }
   };
 
-  const handleDownloadReport = () => {
-    alert("Download violation report - This will generate a PDF report");
-  };
-
-  const handleDownloadCertificate = () => {
-    alert(
-      "Download compliance certificate - This will generate a certificate PDF"
-    );
+  const getSeverityColor = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+      case "high":
+        return "text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/20";
+      case "medium":
+        return "text-[#F97316] bg-[#F97316]/10 border-[#F97316]/20";
+      case "low":
+        return "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20";
+      default:
+        return "text-[#6B7280] bg-[#6B7280]/10 border-[#6B7280]/20";
+    }
   };
 
   return (
@@ -441,229 +492,374 @@ function ResultsStep({ result }: { result: ComplianceResult }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
+      className="max-w-7xl mx-auto pb-24 "
     >
-      {/* Decision Banner */}
-      <Card
-        className={`p-8 mb-8 border-2 ${
-          decision === "approved"
-            ? "border-[#10B981] bg-[#10B981]/5"
-            : "border-[#EF4444] bg-[#EF4444]/5"
-        }`}
-      >
-        <div className="text-center">
-          {decision === "approved" ? (
-            <>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", duration: 0.6 }}
-              >
-                <CheckCircle
-                  size={80}
-                  className="text-[#10B981] mx-auto mb-4"
-                />
-              </motion.div>
-              <h2 className="text-[#10B981] mb-2">APPROVED ✓</h2>
-              <p className="text-[#6B7280] mb-6">
-                Your architectural plans meet all building code requirements.
-                Ready to submit to city.
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleDownloadCertificate}
-                className="px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white rounded-lg transition-colors"
-              >
-                Download Compliance Certificate
-              </motion.button>
-            </>
-          ) : (
-            <>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", duration: 0.6 }}
-              >
-                <X size={80} className="text-[#EF4444] mx-auto mb-4" />
-              </motion.div>
-              <h2 className="text-[#EF4444] mb-2">REJECTED ✕</h2>
-              <p className="text-[#6B7280] mb-6">
-                Your plans have {overview.total_violations} violation
-                {overview.total_violations !== 1 ? "s" : ""} that must be
-                corrected. Review the details below and fix each issue.
-              </p>
-              <div className="flex items-center justify-center gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleDownloadReport}
-                  className="px-6 py-3 bg-[#0B67FF] hover:bg-[#0952CC] text-white rounded-lg transition-colors"
-                >
-                  Download Violation Report
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-6 py-3 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg transition-colors"
-                >
-                  Re-Upload Corrected Plans
-                </motion.button>
-              </div>
-            </>
-          )}
-        </div>
-      </Card>
-
-      {/* Overview Cards */}
+      {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="p-6 text-center">
-          <div className="text-[#0B67FF] mb-2">
-            <CheckCircle size={32} className="mx-auto" />
+        <Card className="flex flex-col items-center justify-center p-6 bg-[#1E293B] border border-[#334155]">
+          <h3 className="text-[#94A3B8] text-sm font-medium mb-2">
+            Overall Score
+          </h3>
+          <div className="flex items-end gap-2">
+            <span className="text-4xl font-bold text-[#F8FAFC]">{score}</span>
+            <span className="text-sm text-[#6B7280] mb-1">/ 100</span>
           </div>
-          <h3 className="mb-2">{overview.compliance_score}%</h3>
-          <p className="text-[#6B7280]">Compliance Score</p>
         </Card>
 
-        <Card className="p-6 text-center">
-          <div className="text-[#F97316] mb-2">
-            <AlertCircle size={32} className="mx-auto" />
+        <Card className="flex flex-col items-center justify-center p-6 bg-[#1E293B] border border-[#334155]">
+          <h3 className="text-[#94A3B8] text-sm font-medium mb-2">
+            Confidence Level
+          </h3>
+          <div className="flex items-end gap-2">
+            <span className="text-4xl font-bold text-[#F8FAFC]">
+              {confidence}%
+            </span>
           </div>
-          <h3 className="mb-2">{overview.total_violations}</h3>
-          <p className="text-[#6B7280]">Total Violations</p>
         </Card>
 
-        <Card className="p-6 text-center">
-          <div className="text-[#EF4444] mb-2">
-            <AlertCircle size={32} className="mx-auto" />
+        <Card className="flex flex-col items-center justify-center p-6 bg-[#1E293B] border border-[#334155]">
+          <h3 className="text-[#94A3B8] text-sm font-medium mb-2">Status</h3>
+          <div
+            className={`text-xl font-bold ${
+              approved ? "text-[#10B981]" : "text-[#F59E0B]"
+            }`}
+          >
+            {decision}
           </div>
-          <h3 className="mb-2">{overview.critical_issues}</h3>
-          <p className="text-[#6B7280]">Critical Issues</p>
         </Card>
       </div>
 
-      {/* Metadata */}
-      <Card className="p-6 mb-8">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3">
-            <Hash size={20} className="text-[#0B67FF]" />
-            <div>
-              <p className="text-[#6B7280]">Compliance ID</p>
-              <p className="text-[#F8FAFC]">{result.compliance_id}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Calendar size={20} className="text-[#0B67FF]" />
-            <div>
-              <p className="text-[#6B7280]">Analysis Date</p>
-              <p className="text-[#F8FAFC]">
-                {new Date(result.revision_date).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Executive Summary Section */}
+      <Card className="mb-8 bg-[#1E293B] border border-[#334155] p-6">
+        <h3 className="text-lg font-semibold text-[#F8FAFC] mb-3">
+          Executive Summary
+        </h3>
+        <p className="text-[#94A3B8] leading-relaxed">{summary}</p>
       </Card>
 
-      {/* Violations */}
-      {violations.length > 0 && (
-        <Card className="p-6 mb-8">
-          <h3 className="mb-6 flex items-center gap-2">
-            <AlertCircle className="text-[#F97316]" />
-            Code Violations ({violations.length})
-          </h3>
-          <div className="space-y-4">
-            {violations.map((violation, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-5 bg-[#1E293B] rounded-lg border-l-4 border-[#EF4444]"
+      {/* Tabs Navigation */}
+      <div className="flex overflow-x-auto border-b border-[#334155] mb-6 gap-1 no-scrollbar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative whitespace-nowrap ${
+              activeTab === tab.id
+                ? "text-[#0B67FF]"
+                : "text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
+            }`}
+          >
+            <tab.icon size={18} />
+            {tab.label}
+            {tab.count !== undefined && tab.count > 0 && (
+              <span
+                className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                  activeTab === tab.id ? "bg-[#0B67FF]/10" : "bg-[#334155]"
+                }`}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="px-3 py-1 bg-[#0B67FF]/20 text-[#0B67FF] rounded">
-                      {violation.code}
+                {tab.count}
+              </span>
+            )}
+            {activeTab === tab.id && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0B67FF]"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="min-h-[400px]">
+        {activeTab === "detailed" && (
+          <div className="space-y-6 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="p-6 bg-[#1E293B] border border-[#334155]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-[#0B67FF]/10 rounded-lg">
+                    <FileText className="text-[#0B67FF]" size={24} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#F8FAFC]">
+                    Text Analysis
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-xs text-[#6B7280] uppercase tracking-wider font-semibold">
+                      Summary
                     </span>
+                    <p className="text-[#94A3B8] mt-1">
+                      {detailed_analysis?.text_analysis_summary}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-t border-[#334155]">
+                    <span className="text-sm text-[#94A3B8]">
+                      Compliance Categories
+                    </span>
+                    <span className="text-sm font-medium text-[#F8FAFC]">
+                      4 Analyzed
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 bg-[#1E293B] border border-[#334155]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-[#06B6D4]/10 rounded-lg">
+                    <ImageIcon className="text-[#06B6D4]" size={24} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#F8FAFC]">
+                    Image Analysis
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-xs text-[#6B7280] uppercase tracking-wider font-semibold">
+                      Summary
+                    </span>
+                    <p className="text-[#94A3B8] mt-1">
+                      {detailed_analysis?.image_analysis_summary}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-t border-[#334155]">
+                    <span className="text-sm text-[#94A3B8]">
+                      Diagram Aspects
+                    </span>
+                    <span className="text-sm font-medium text-[#F8FAFC]">
+                      2 Reviewed
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "findings" && (
+          <div className="space-y-4 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {text_based_findings.map((item: any, index: number) => (
+              <Card
+                key={`text-${index}`}
+                className="p-5 bg-[#1E293B] border border-[#334155]"
+              >
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[#0B67FF] font-medium">
+                        {item.category}
+                      </span>
+                      <span className="text-[#6B7280]">•</span>
+                      <span className="text-[#94A3B8] text-sm">
+                        Text Analysis
+                      </span>
+                    </div>
+                    <p className="text-[#F8FAFC]">{item.finding}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <span
-                      className={`px-3 py-1 rounded ${getSeverityColor(
-                        violation.severity
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        item.status
                       )}`}
                     >
-                      {violation.severity.toUpperCase()}
+                      {item.status}
+                    </span>
+                    {item.impact && (
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getSeverityColor(
+                          item.impact
+                        )}`}
+                      >
+                        {item.impact} Impact
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {image_based_findings.map((item: any, index: number) => (
+              <Card
+                key={`image-${index}`}
+                className="p-5 bg-[#1E293B] border border-[#334155]"
+              >
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[#06B6D4] font-medium">
+                        {item.diagram_type}
+                      </span>
+                      <span className="text-[#6B7280]">•</span>
+                      <span className="text-[#94A3B8] text-sm">
+                        Image Analysis
+                      </span>
+                    </div>
+                    <p className="text-[#F8FAFC]">{item.finding}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        item.visual_match
+                      )}`}
+                    >
+                      {item.visual_match}
                     </span>
                   </div>
                 </div>
-
-                <h4 className="mb-3 text-[#F8FAFC]">{violation.description}</h4>
-
-                {/* Found vs Required */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                  <div className="p-3 bg-[#EF4444]/10 rounded border border-[#EF4444]/20">
-                    <p className="text-[#EF4444] mb-1">
-                      <strong>Found:</strong>
-                    </p>
-                    <p className="text-[#F8FAFC]">{violation.found}</p>
-                  </div>
-                  <div className="p-3 bg-[#10B981]/10 rounded border border-[#10B981]/20">
-                    <p className="text-[#10B981] mb-1">
-                      <strong>Required:</strong>
-                    </p>
-                    <p className="text-[#F8FAFC]">{violation.required}</p>
-                  </div>
-                </div>
-
-                <p className="text-[#6B7280] mb-3">
-                  <strong>Location:</strong> {violation.location}
-                </p>
-
-                {/* Fix Recommendation */}
-                <div className="p-4 bg-[#0F172A] rounded-lg border-l-2 border-[#06B6D4]">
-                  <p className="text-[#06B6D4] mb-2">
-                    <strong>How to Fix:</strong>
-                  </p>
-                  <p className="text-[#F8FAFC] mb-2">{violation.fix}</p>
-                  <p className="text-[#6B7280]">
-                    <strong>Code Reference:</strong> Section{" "}
-                    {violation.code_reference}
-                  </p>
-                </div>
-              </motion.div>
+              </Card>
             ))}
           </div>
-        </Card>
-      )}
+        )}
 
-      {/* Compliant Items */}
-      {compliant_items.length > 0 && (
-        <Card className="p-6">
-          <h3 className="mb-6 flex items-center gap-2">
-            <CheckCircle className="text-[#10B981]" />
-            Compliant Items ({compliant_items.length})
-          </h3>
-          <div className="space-y-3">
-            {compliant_items.map((item, index) => (
-              <motion.div
+        {activeTab === "violations" && (
+          <div className="space-y-4 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {violations.length === 0 && (
+              <div className="text-center py-12 text-[#6B7280]">
+                <CheckCircle2
+                  size={48}
+                  className="mx-auto mb-3 opacity-50 text-[#10B981]"
+                />
+                <p>No violations found. Good job!</p>
+              </div>
+            )}
+            {violations.map((violation: any, index: number) => (
+              <Card
                 key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-4 bg-[#1E293B] rounded-lg border-l-4 border-[#10B981]"
+                className="p-5 bg-[#1E293B] border-l-4 border-l-[#EF4444] border-t border-r border-b border-[#334155]"
               >
-                <div className="flex items-start gap-3">
-                  <span className="px-3 py-1 bg-[#0B67FF]/20 text-[#0B67FF] rounded">
-                    {item.code}
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-[#F8FAFC] mb-1">{item.description}</p>
-                    <p className="text-[#6B7280]">{item.location}</p>
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[#EF4444] font-medium flex items-center gap-1">
+                        <AlertCircle size={16} />
+                        Violation
+                      </span>
+                      <span className="text-[#6B7280]">•</span>
+                      <span className="text-[#94A3B8] text-sm font-mono">
+                        Code: {violation.code_section}
+                      </span>
+                    </div>
+                    <p className="text-[#F8FAFC] font-medium">
+                      {violation.description}
+                    </p>
                   </div>
-                  <CheckCircle size={20} className="text-[#10B981] mt-1" />
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getSeverityColor(
+                      violation.severity
+                    )}`}
+                  >
+                    {violation.severity} Severity
+                  </span>
                 </div>
-              </motion.div>
+              </Card>
             ))}
           </div>
-        </Card>
-      )}
+        )}
+
+        {activeTab === "recommendations" && (
+          <div className="space-y-4 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {recommendations.length === 0 && (
+              <div className="text-center py-12 text-[#6B7280]">
+                <Info size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No specific recommendations available.</p>
+              </div>
+            )}
+            {recommendations.map((rec: any, index: number) => (
+              <Card
+                key={index}
+                className="p-5 bg-[#1E293B] border border-[#334155]"
+              >
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded ${getSeverityColor(
+                      rec.priority
+                    )}`}
+                  >
+                    {rec.priority} Priority
+                  </span>
+                  <span className="text-xs text-[#6B7280]">{rec.timeline}</span>
+                </div>
+                <p className="text-[#F8FAFC]">{rec.recommendation}</p>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "codes" && (
+          <div className="space-y-3 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {relevant_sections.map((section: any, index: number) => (
+              <div
+                key={index}
+                className="p-4 rounded-lg bg-[#1E293B] border border-[#334155] hover:border-[#0B67FF]/50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpen size={16} className="text-[#0B67FF]" />
+                    <span className="text-sm font-medium text-[#F8FAFC]">
+                      {section.content_type?.replace("_", " ").toUpperCase() ||
+                        "CODE SECTION"}
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#6B7280] px-2 py-1 bg-[#0F172A] rounded">
+                    Page {section.page}
+                  </span>
+                </div>
+
+                {section.content && (
+                  <p className="text-sm text-[#94A3B8] line-clamp-3 mb-3 font-mono bg-[#0F172A] p-3 rounded border border-[#334155]">
+                    {section.content}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-1.5 w-24 bg-[#0F172A] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#10B981]"
+                        style={{
+                          width: `${(section.similarity_score || 0) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-[#10B981]">
+                      {Math.round((section.similarity_score || 0) * 100)}% Match
+                    </span>
+                  </div>
+                  {section.type === "image" && (
+                    <Button
+                      variant="ghost"
+                      className="text-[#0B67FF] h-auto py-1 px-2"
+                    >
+                      <ExternalLink size={14} className="mr-1" />
+                      View Image
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Action Bar */}
+
+      <div className=" mt-8">
+        <div className="  max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex flex-1 md:flex-none items-center gap-3">
+            <Button className="flex-1 md:flex-none bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155]">
+              <Download size={18} className="mr-2" />
+              Download Report
+            </Button>
+            <Button className="flex-1 md:flex-none bg-[#EF4444] hover:bg-[#DC2626] text-white border-none">
+              <RefreshCw size={18} className="mr-2" />
+              Request Revisions
+            </Button>
+            <Button className="flex-1 md:flex-none bg-[#10B981] hover:bg-[#059669] text-white border-none">
+              <CheckCircle2 size={18} className="mr-2" />
+              Approve Plan
+            </Button>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

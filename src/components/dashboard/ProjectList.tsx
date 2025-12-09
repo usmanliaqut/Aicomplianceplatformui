@@ -21,16 +21,15 @@ const statusConfig = {
 
 // Helper function to map API project to UI project
 const mapProject = (apiProject: any) => ({
-  id: apiProject.project_id,
-  name: apiProject.applicant_name,
-  city: apiProject.location,
-  status: "pending", // default since API doesn't provide status
-  lastUpdated: apiProject.submission_date,
-  progress: 0, // default, API doesn't provide
-  image:
-    "https://images.unsplash.com/photo-1616418534243-ab757ff8ce3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg", // placeholder
-  building_type: apiProject.building_type,
+  project_id: apiProject.project_id,
   applicant_name: apiProject.applicant_name,
+  location: apiProject.location,
+  submission_date: apiProject.submission_date,
+  status: "pending",
+  progress: 0,
+  image:
+    "https://images.unsplash.com/photo-1616418534243-ab757ff8ce3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+  building_type: apiProject.building_type,
 });
 
 export function ProjectList() {
@@ -147,6 +146,7 @@ export function ProjectList() {
           {projectsList.map((project: Project, index: number) => {
             const status =
               statusConfig[project.status as keyof typeof statusConfig];
+            console.log("first", project);
 
             return (
               <motion.div
@@ -164,7 +164,7 @@ export function ProjectList() {
                       alt={project.applicant_name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                     <div
                       className="absolute top-3 right-3 px-3 py-1 rounded-full text-white backdrop-blur-sm"
                       style={{ backgroundColor: `${status.bg}80` }}

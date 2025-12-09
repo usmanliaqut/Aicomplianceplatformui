@@ -1,26 +1,21 @@
-import { motion } from 'motion/react';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  Building2, 
-  FileText, 
-  CheckCircle2, 
-  AlertTriangle, 
+import { motion } from "motion/react";
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Building2,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
   Clock,
   Download,
-  Share2,
-  Edit,
-  Trash2,
   Upload,
-  User,
-  Activity,
-  Plus
-} from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { useState } from 'react';
-import { ComplianceCreate } from './ComplianceCreate';
+  Plus,
+} from "lucide-react";
+import { Card } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { useState } from "react";
+import { ComplianceCreate } from "./ComplianceCreate";
 
 interface ProjectViewProps {
   project: any;
@@ -28,74 +23,121 @@ interface ProjectViewProps {
 }
 
 export function ProjectView({ project, onBack }: ProjectViewProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'compliance' | 'documents'>('overview');
+  console.log("project", project);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "compliance" | "documents"
+  >("overview");
   const [showComplianceCreate, setShowComplianceCreate] = useState(false);
   const [compliances, setCompliances] = useState([
     {
       id: 1,
-      fileName: 'Floor_Plans_v1.pdf',
-      uploadDate: '2024-01-15',
-      status: 'approved',
+      fileName: "Floor_Plans_v1.pdf",
+      uploadDate: "2024-01-15",
+      status: "approved",
       score: 98,
       checks: [
-        { name: 'Zoning Compliance', status: 'passed', message: 'Meets all local zoning requirements' },
-        { name: 'Building Height', status: 'passed', message: 'Within 150ft height limit' },
-        { name: 'Fire Safety', status: 'passed', message: 'All fire exits compliant' },
-        { name: 'ADA Accessibility', status: 'warning', message: 'Requires additional ramp' }
-      ]
+        {
+          name: "Zoning Compliance",
+          status: "passed",
+          message: "Meets all local zoning requirements",
+        },
+        {
+          name: "Building Height",
+          status: "passed",
+          message: "Within 150ft height limit",
+        },
+        {
+          name: "Fire Safety",
+          status: "passed",
+          message: "All fire exits compliant",
+        },
+        {
+          name: "ADA Accessibility",
+          status: "warning",
+          message: "Requires additional ramp",
+        },
+      ],
     },
     {
       id: 2,
-      fileName: 'Site_Survey_Updated.dwg',
-      uploadDate: '2024-01-14',
-      status: 'pending',
+      fileName: "Site_Survey_Updated.dwg",
+      uploadDate: "2024-01-14",
+      status: "pending",
       score: 67,
-      checks: []
-    }
+      checks: [],
+    },
   ]);
 
   const handleCreateCompliance = (complianceData: any) => {
     const newCompliance = {
       id: compliances.length + 1,
       fileName: complianceData.file.name,
-      uploadDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
+      uploadDate: new Date().toISOString().split("T")[0],
+      status: "pending",
       score: 0,
-      checks: []
+      checks: [],
     };
-    
+
     setCompliances([newCompliance, ...compliances]);
     setShowComplianceCreate(false);
   };
 
   const statusConfig = {
-    approved: { color: '#10B981', label: 'Approved', bg: '#10B981' },
-    pending: { color: '#F97316', label: 'Pending Review', bg: '#F97316' },
-    rejected: { color: '#EF4444', label: 'Needs Revision', bg: '#EF4444' }
+    approved: { color: "#10B981", label: "Approved", bg: "#10B981" },
+    pending: { color: "#F97316", label: "Pending Review", bg: "#F97316" },
+    rejected: { color: "#EF4444", label: "Needs Revision", bg: "#EF4444" },
   };
 
   const status = statusConfig[project.status as keyof typeof statusConfig];
 
   const documents = [
-    { name: 'Architectural Plans.pdf', size: '12.5 MB', uploadedDate: '2024-01-15', type: 'PDF' },
-    { name: 'Site Survey.dwg', size: '8.2 MB', uploadedDate: '2024-01-14', type: 'DWG' },
-    { name: 'Floor Plans.pdf', size: '15.8 MB', uploadedDate: '2024-01-14', type: 'PDF' },
-    { name: 'Elevation Drawings.dxf', size: '6.4 MB', uploadedDate: '2024-01-13', type: 'DXF' }
+    {
+      name: "Architectural Plans.pdf",
+      size: "12.5 MB",
+      uploadedDate: "2024-01-15",
+      type: "PDF",
+    },
+    {
+      name: "Site Survey.dwg",
+      size: "8.2 MB",
+      uploadedDate: "2024-01-14",
+      type: "DWG",
+    },
+    {
+      name: "Floor Plans.pdf",
+      size: "15.8 MB",
+      uploadedDate: "2024-01-14",
+      type: "PDF",
+    },
+    {
+      name: "Elevation Drawings.dxf",
+      size: "6.4 MB",
+      uploadedDate: "2024-01-13",
+      type: "DXF",
+    },
   ];
 
   const timeline = [
-    { date: '2024-01-15', event: 'Project submitted for review', user: 'John Smith' },
-    { date: '2024-01-14', event: 'Documents uploaded', user: 'John Smith' },
-    { date: '2024-01-14', event: 'Initial compliance check completed', user: 'System' },
-    { date: '2024-01-13', event: 'Project created', user: 'John Smith' }
+    {
+      date: "2024-01-15",
+      event: "Project submitted for review",
+      user: "John Smith",
+    },
+    { date: "2024-01-14", event: "Documents uploaded", user: "John Smith" },
+    {
+      date: "2024-01-14",
+      event: "Initial compliance check completed",
+      user: "System",
+    },
+    { date: "2024-01-13", event: "Project created", user: "John Smith" },
   ];
 
   // Show compliance creation flow if active
   if (showComplianceCreate) {
     return (
       <ComplianceCreate
-        projectId={project.id}
-        projectName={project.name}
+        projectId={project.project_id}
+        projectName={project.applicant_name}
         onBack={() => setShowComplianceCreate(false)}
       />
     );
@@ -124,16 +166,19 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                   <Building2 size={24} className="text-[#0B67FF]" />
                 </div>
                 <div>
-                  <h2>{project.name}</h2>
+                  <h2>{project.applicant_name}</h2>
                   <div className="flex items-center gap-2 text-[#6B7280] mt-1">
                     <MapPin size={16} />
-                    <span>{project.city}</span>
+                    <span>{project.location}</span>
                   </div>
                 </div>
               </div>
               <div
                 className="inline-block px-4 py-2 rounded-lg"
-                style={{ backgroundColor: `${status.bg}20`, color: status.color }}
+                style={{
+                  backgroundColor: `${status.bg}20`,
+                  color: status.color,
+                }}
               >
                 {status.label}
               </div>
@@ -143,18 +188,16 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-[#0B67FF]/20">
             <div>
               <p className="text-[#6B7280] mb-1">Project Type</p>
-              <p className="text-[#F8FAFC]">Commercial</p>
+              <p className="text-[#F8FAFC]">{project.building_type}</p>
             </div>
             <div>
               <p className="text-[#6B7280] mb-1">Start Date</p>
               <div className="flex items-center gap-2">
                 <Calendar size={16} className="text-[#0B67FF]" />
-                <span className="text-[#F8FAFC]">Jan 15, 2024</span>
+                <span className="text-[#F8FAFC]">
+                  {project.submission_date}
+                </span>
               </div>
-            </div>
-            <div>
-              <p className="text-[#6B7280] mb-1">Last Updated</p>
-              <p className="text-[#F8FAFC]">{project.lastUpdated}</p>
             </div>
           </div>
         </Card>
@@ -166,32 +209,32 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
         <Card>
           <div className="flex gap-1 border-b border-[#0B67FF]/20">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab("overview")}
               className={`px-6 py-3 transition-all ${
-                activeTab === 'overview'
-                  ? 'text-[#0B67FF] border-b-2 border-[#0B67FF]'
-                  : 'text-[#6B7280] hover:text-[#F8FAFC]'
+                activeTab === "overview"
+                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
+                  : "text-[#6B7280] hover:text-[#F8FAFC]"
               }`}
             >
               Overview
             </button>
             <button
-              onClick={() => setActiveTab('compliance')}
+              onClick={() => setActiveTab("compliance")}
               className={`px-6 py-3 transition-all flex items-center gap-2 ${
-                activeTab === 'compliance'
-                  ? 'text-[#0B67FF] border-b-2 border-[#0B67FF]'
-                  : 'text-[#6B7280] hover:text-[#F8FAFC]'
+                activeTab === "compliance"
+                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
+                  : "text-[#6B7280] hover:text-[#F8FAFC]"
               }`}
             >
               <CheckCircle2 size={18} />
               Compliance
             </button>
             <button
-              onClick={() => setActiveTab('documents')}
+              onClick={() => setActiveTab("documents")}
               className={`px-6 py-3 transition-all flex items-center gap-2 ${
-                activeTab === 'documents'
-                  ? 'text-[#0B67FF] border-b-2 border-[#0B67FF]'
-                  : 'text-[#6B7280] hover:text-[#F8FAFC]'
+                activeTab === "documents"
+                  ? "text-[#0B67FF] border-b-2 border-[#0B67FF]"
+                  : "text-[#6B7280] hover:text-[#F8FAFC]"
               }`}
             >
               <FileText size={18} />
@@ -201,23 +244,25 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
         </Card>
 
         {/* Overview Tab */}
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <>
             {/* Project Description */}
             <Card>
               <h3 className="mb-4">Project Description</h3>
               <p className="text-[#6B7280] leading-relaxed">
-                A modern office complex featuring sustainable design principles and state-of-the-art amenities. 
-                The project includes a 12-story main building with ground-floor retail spaces, underground parking, 
-                and landscaped outdoor areas. The design emphasizes energy efficiency, natural lighting, and 
-                employee wellness with integrated green spaces and recreational facilities.
+                A modern office complex featuring sustainable design principles
+                and state-of-the-art amenities. The project includes a 12-story
+                main building with ground-floor retail spaces, underground
+                parking, and landscaped outdoor areas. The design emphasizes
+                energy efficiency, natural lighting, and employee wellness with
+                integrated green spaces and recreational facilities.
               </p>
             </Card>
           </>
         )}
 
         {/* Compliance Tab */}
-        {activeTab === 'compliance' && (
+        {activeTab === "compliance" && (
           <Card>
             <div className="flex items-center justify-between mb-6">
               <h3>Compliance Checks ({compliances.length})</h3>
@@ -233,7 +278,8 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
             </div>
             <div className="space-y-4">
               {compliances.map((compliance, index) => {
-                const complianceStatus = statusConfig[compliance.status as keyof typeof statusConfig];
+                const complianceStatus =
+                  statusConfig[compliance.status as keyof typeof statusConfig];
                 return (
                   <motion.div
                     key={compliance.id}
@@ -248,7 +294,9 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                           <FileText size={20} className="text-[#06B6D4]" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-[#F8FAFC] mb-1">{compliance.fileName}</p>
+                          <p className="text-[#F8FAFC] mb-1">
+                            {compliance.fileName}
+                          </p>
                           <p className="text-[#6B7280]">
                             Uploaded {compliance.uploadDate}
                           </p>
@@ -263,10 +311,12 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                     </div>
 
                     {/* Compliance Score */}
-                    {compliance.status !== 'pending' && (
+                    {compliance.status !== "pending" && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between mb-2">
-                          <small className="text-[#6B7280]">Compliance Score</small>
+                          <small className="text-[#6B7280]">
+                            Compliance Score
+                          </small>
                           <small style={{ color: complianceStatus.color }}>
                             {compliance.score}%
                           </small>
@@ -287,17 +337,28 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                     {compliance.checks.length > 0 && (
                       <div className="space-y-2 mt-3 pt-3 border-t border-[#0B67FF]/10">
                         {compliance.checks.map((check, checkIndex) => {
-                          const isPassed = check.status === 'passed';
+                          const isPassed = check.status === "passed";
                           return (
-                            <div key={checkIndex} className="flex items-start gap-2">
+                            <div
+                              key={checkIndex}
+                              className="flex items-start gap-2"
+                            >
                               {isPassed ? (
-                                <CheckCircle2 size={16} className="text-[#10B981] mt-0.5 flex-shrink-0" />
+                                <CheckCircle2
+                                  size={16}
+                                  className="text-[#10B981] mt-0.5 flex-shrink-0"
+                                />
                               ) : (
-                                <AlertTriangle size={16} className="text-[#F97316] mt-0.5 flex-shrink-0" />
+                                <AlertTriangle
+                                  size={16}
+                                  className="text-[#F97316] mt-0.5 flex-shrink-0"
+                                />
                               )}
                               <div className="flex-1">
                                 <p className="text-[#F8FAFC]">{check.name}</p>
-                                <p className="text-[#6B7280]">{check.message}</p>
+                                <p className="text-[#6B7280]">
+                                  {check.message}
+                                </p>
                               </div>
                             </div>
                           );
@@ -305,7 +366,7 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                       </div>
                     )}
 
-                    {compliance.status === 'pending' && (
+                    {compliance.status === "pending" && (
                       <div className="flex items-center gap-2 text-[#F97316] mt-3 pt-3 border-t border-[#0B67FF]/10">
                         <Clock size={16} />
                         <small>Processing compliance check...</small>
@@ -327,7 +388,7 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
         )}
 
         {/* Documents Tab */}
-        {activeTab === 'documents' && (
+        {activeTab === "documents" && (
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3>Project Documents</h3>
