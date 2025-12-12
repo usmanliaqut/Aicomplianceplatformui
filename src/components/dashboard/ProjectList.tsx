@@ -20,7 +20,7 @@ const statusConfig = {
 };
 
 // Helper function to map API project to UI project
-const mapProject = (apiProject: any) => ({
+const mapProject = (apiProject: any): Project => ({
   project_id: apiProject.project_id,
   applicant_name: apiProject.applicant_name,
   location: apiProject.location,
@@ -37,7 +37,8 @@ export function ProjectList() {
   const [selectedProject, setSelectedProject] = useState<any>(null);
 
   const { projectsQuery, createProjectMutation } = useProjects();
-  const projectsList = (projectsQuery.data || []).map(mapProject);
+  const rawProjects = Array.isArray(projectsQuery.data) ? projectsQuery.data : [];
+  const projectsList: Project[] = rawProjects.map(mapProject);
 
   const handleCreateProject = (projectData: any) => {
     createProjectMutation.mutate({
@@ -50,6 +51,22 @@ export function ProjectList() {
 
   const handleProjectClick = (project: any) => setSelectedProject(project);
   const handleBackToList = () => setSelectedProject(null);
+
+  if (projectsQuery.isLoading) {
+    return (
+      <div className="p-6 text-[#6B7280]">
+        Loading projects...
+      </div>
+    );
+  }
+
+  if (projectsQuery.isError) {
+    return (
+      <div className="p-6 text-red-400">
+        Failed to load projects. Please check your API URL or try again later.
+      </div>
+    );
+  }
 
   if (selectedProject) {
     return <ProjectView project={selectedProject} onBack={handleBackToList} />;
@@ -164,7 +181,7 @@ export function ProjectList() {
                       alt={project.applicant_name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     <div
                       className="absolute top-3 right-3 px-3 py-1 rounded-full text-white backdrop-blur-sm"
                       style={{ backgroundColor: `${status.bg}80` }}

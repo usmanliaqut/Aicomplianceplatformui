@@ -1,11 +1,12 @@
 import { motion } from "motion/react";
-import { Building2, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Building2, Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../../hooks/useAuth";
+import { useState } from "react";
 
 // ------------------
 // Zod Validation
@@ -28,6 +29,9 @@ export function Register() {
   const navigate = useNavigate();
   const { register: userRegister } = useAuth();
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -37,16 +41,11 @@ export function Register() {
   });
 
   const onSubmit = (data: RegisterForm) => {
-    userRegister.mutate(
-      {
-        name: data.fullName,
-        email: data.email,
-        password: data.password,
-      },
-      {
-        onSuccess: () => navigate("/dashboard"),
-      }
-    );
+    userRegister.mutate({
+      name: data.fullName,
+      email: data.email,
+      password: data.password,
+    });
   };
 
   return (
@@ -136,10 +135,17 @@ export function Register() {
                 />
                 <input
                   {...register("password")}
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Create a strong password"
-                  className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC]"
+                  className="w-full pl-12 pr-12 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#9CA3AF] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
               {errors.password && (
                 <p className="text-red-400 text-sm mt-1">
@@ -160,10 +166,17 @@ export function Register() {
                 />
                 <input
                   {...register("confirmPassword")}
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter password"
-                  className="w-full pl-12 pr-4 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC]"
+                  className="w-full pl-12 pr-12 py-3 bg-[#0F172A] border border-[#0B67FF]/30 rounded-lg text-[#F8FAFC]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#9CA3AF] transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
               {errors.confirmPassword && (
                 <p className="text-red-400 text-sm mt-1">

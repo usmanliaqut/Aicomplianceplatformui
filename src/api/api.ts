@@ -1,3 +1,4 @@
+
 import axios from "axios";
 import { User } from "../types/user";
 
@@ -8,6 +9,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 

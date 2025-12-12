@@ -38,7 +38,7 @@ export const useAuth = () => {
     onSuccess: ({ access_token }) => {
       localStorage.setItem("token", access_token);
       toast.success("Account created successfully!");
-      navigate("/dashboard");
+      navigate("/login");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Registration failed");

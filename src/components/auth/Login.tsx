@@ -1,11 +1,12 @@
 import { motion } from "motion/react";
-import { Building2, Mail, Lock, ArrowRight } from "lucide-react";
+import { Building2, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../../hooks/useAuth";
+import { useState } from "react";
 
 // Zod schema
 const loginSchema = z.object({
@@ -18,6 +19,8 @@ type LoginFormInputs = z.infer<typeof loginSchema>;
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -109,16 +112,23 @@ export function Login() {
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                 />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
                   placeholder="Enter your password"
                   {...register("password")}
-                  className={`w-full pl-12 pr-4 py-3 bg-[#0F172A] border rounded-lg text-[#F8FAFC] placeholder:text-[#6B7280] focus:outline-none transition-colors ${
+                  className={`w-full pl-12 pr-12 py-3 bg-[#0F172A] border rounded-lg text-[#F8FAFC] placeholder:text-[#6B7280] focus:outline-none transition-colors ${
                     errors.password
                       ? "border-red-500"
                       : "border-[#0B67FF]/30 focus:border-[#0B67FF]"
                   }`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#9CA3AF] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
               {errors.password && (
                 <p className="text-red-500 text-sm mt-1">
@@ -152,7 +162,7 @@ export function Login() {
           </form>
 
           {/* Sign Up Link */}
-          <p className="text-center text-[#6B7280] mt-6">
+          <p className="text-center text-[#6B7280] mt-8">
             Don&apos;t have an account?{" "}
             <button
               onClick={() => navigate("/register")}

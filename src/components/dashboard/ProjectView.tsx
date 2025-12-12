@@ -279,6 +279,7 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                     {compliance.checks.length > 0 && (
                       <div className="space-y-2 mt-3 pt-3 border-t border-[#0B67FF]/10">
                         {compliance.checks.map((check, checkIndex) => {
+                          console.log("check",check)
                           const isPassed = check.status === "passed";
                           return (
                             <div

@@ -8,9 +8,17 @@ export interface CreateCompliancePayload {
   file: File; // Only one file (API expects single "file")
 }
 
+// Response when starting an async compliance task
+export interface ComplianceTaskResponse {
+  task_id: string;
+  status: string;
+  message?: string;
+  websocket_url: string;
+}
+
 export const createCompliance = async (
   payload: CreateCompliancePayload
-): Promise<ComplianceResult> => {
+): Promise<ComplianceTaskResponse> => {
   const formData = new FormData();
   formData.append("file", payload.file); // Must be "file"
 
@@ -19,7 +27,7 @@ export const createCompliance = async (
     cache_ttl: (payload.cache_ttl ?? 3600).toString(),
   });
 
-  const { data } = await api.post<ComplianceResult>(
+  const { data } = await api.post<ComplianceTaskResponse>(
     `/compliance/check/${payload.projectId}?${query.toString()}`,
     formData,
     {
@@ -36,15 +44,24 @@ export const createCompliance = async (
 export const getCompliancesByProject = async (
   projectId: number
 ): Promise<ComplianceResult[]> => {
-  const { data } = await api.get<ComplianceResult[]>(`/compliance/${projectId}`);
-
-  return data;
+  try {
+    const { data } = await api.get<ComplianceResult[]>(
+      `/compliance/record/${projectId}`
+    );
+    return data;
+  } catch (error: any) {
+    // If the backend returns 404, treat it as "no compliances yet" for this project
+    if (error?.response?.status === 404) {
+      return [];
+    }
+    throw error;
+  }
 };
 
 // Get a single compliance record by its ID
 export const getComplianceRecord = async (
   complianceId: number
 ): Promise<any> => {
-  const { data } = await api.get(`/compliance/record/${complianceId}`);
+  const { data } = await api.get(`/compliance/compliance-record/${complianceId}`);
   return data;
 };

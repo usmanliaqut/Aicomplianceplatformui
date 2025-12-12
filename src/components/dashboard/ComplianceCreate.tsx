@@ -22,6 +22,7 @@ import {
 import { Card } from "../ui/Card";
 import { useCompliance } from "../../hooks/useCompliance";
 import { Button } from "../ui/Button";
+import codeBookPdf from "../../North Bay Village, FL Unified Land Development Code.pdf";
 
 interface ComplianceCreateProps {
   projectId: string;
@@ -72,7 +73,8 @@ export function ComplianceCreate({
 
   console.log("projectId", projectId);
 
-  const { runCompliance, result, loading, progress, error } = useCompliance();
+  const { runCompliance, result, loading, progress, error, statusText } =
+    useCompliance();
 
   const handleSubmit = async () => {
     if (selectedFiles.length === 0) return;
@@ -97,7 +99,7 @@ export function ComplianceCreate({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0F172A] px-8">
+    <div className="h-full flex flex-col bg-[#0F172A] px-8 py-6">
       {/* Header, Step Indicator, Content */}
 
       <div className="flex items-center gap-4">
@@ -170,7 +172,9 @@ export function ComplianceCreate({
           />
         )}
 
-        {currentStep === "analyzing" && <AnalyzingStep progress={progress} />}
+        {currentStep === "analyzing" && (
+          <AnalyzingStep progress={progress} statusText={statusText || undefined} />
+        )}
 
         {currentStep === "results" && result && <ResultsStep result={result} />}
 
@@ -362,7 +366,13 @@ function UploadStep({
 }
 
 // Analyzing Step Component
-function AnalyzingStep({ progress }: { progress: number }) {
+function AnalyzingStep({
+  progress,
+  statusText,
+}: {
+  progress: number;
+  statusText?: string;
+}) {
   const statusMessages = [
     "Uploading architectural plans...",
     "Processing CAD files...",
@@ -376,6 +386,7 @@ function AnalyzingStep({ progress }: { progress: number }) {
   ];
 
   const currentMessage =
+    statusText ||
     statusMessages[
       Math.min(Math.floor(progress / 11.1), statusMessages.length - 1)
     ];
@@ -427,7 +438,35 @@ function AnalyzingStep({ progress }: { progress: number }) {
 
 function ResultsStep({ result }: { result: any }) {
   const { compliance_result, compliance_id, revision_date, project_id } =
-    result;
+    result || {};
+
+  // Support two shapes:
+  // 1) { compliance_result: { approved, score, ... } }
+  // 2) { approved, score, ... } directly (as sent by the WebSocket)
+  const effectiveResult = compliance_result || result;
+
+  if (!effectiveResult) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="max-w-2xl mx-auto mt-20"
+      >
+        <Card className="p-8 text-center bg-[#1E293B] border border-[#334155]">
+          <h3 className="text-lg font-semibold text-[#F8FAFC] mb-2">
+            Compliance results are not available
+          </h3>
+          <p className="text-[#94A3B8]">
+            The server response did not include detailed compliance data yet.
+            Please try running the check again or check the backend response
+            format.
+          </p>
+        </Card>
+      </motion.div>
+    );
+  }
+
   const {
     approved,
     score,
@@ -439,7 +478,7 @@ function ResultsStep({ result }: { result: any }) {
     detailed_analysis,
     recommendations,
     relevant_sections,
-  } = compliance_result;
+  } = effectiveResult;
 
   const tabs = [
     { id: "detailed", label: "Detailed Analysis", icon: Info },
@@ -461,7 +500,15 @@ function ResultsStep({ result }: { result: any }) {
 
   const decision = approved ? "Approved" : "Conditional Approval";
 
-  const [activeTab, setActiveTab] = useState("Detailed Analysis");
+  // Use the tab id so 'Detailed Analysis' is active by default
+  const [activeTab, setActiveTab] = useState("detailed");
+
+  // For Code References tab: track which section is selected
+  const [selectedSection, setSelectedSection] = useState<any | null>(
+    relevant_sections && relevant_sections.length > 0
+      ? relevant_sections[0]
+      : null
+  );
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -637,76 +684,129 @@ function ResultsStep({ result }: { result: any }) {
         )}
 
         {activeTab === "findings" && (
-          <div className="space-y-4 animate-in fade-in duration-300 slide-in-from-bottom-2">
-            {text_based_findings.map((item: any, index: number) => (
-              <Card
-                key={`text-${index}`}
-                className="p-5 bg-[#1E293B] border border-[#334155]"
-              >
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[#0B67FF] font-medium">
-                        {item.category}
-                      </span>
-                      <span className="text-[#6B7280]">•</span>
-                      <span className="text-[#94A3B8] text-sm">
-                        Text Analysis
-                      </span>
-                    </div>
-                    <p className="text-[#F8FAFC]">{item.finding}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        item.status
-                      )}`}
+          <div className="space-y-6 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {/* Text-based findings */}
+            {text_based_findings.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2">
+                  <FileText size={16} className="text-[#0B67FF]" />
+                  Text Findings
+                </h4>
+                {text_based_findings.map((item: any, index: number) => {
+                  const statusLabel = item.status || "Unknown";
+                  const impactLabel = item.impact || "Medium";
+
+                  return (
+                    <Card
+                      key={`text-${index}`}
+                      className="p-5 bg-[#020617] border border-[#1E293B]"
                     >
-                      {item.status}
-                    </span>
-                    {item.impact && (
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${getSeverityColor(
-                          item.impact
-                        )}`}
-                      >
-                        {item.impact} Impact
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-            {image_based_findings.map((item: any, index: number) => (
-              <Card
-                key={`image-${index}`}
-                className="p-5 bg-[#1E293B] border border-[#334155]"
-              >
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[#06B6D4] font-medium">
-                        {item.diagram_type}
-                      </span>
-                      <span className="text-[#6B7280]">•</span>
-                      <span className="text-[#94A3B8] text-sm">
-                        Image Analysis
-                      </span>
-                    </div>
-                    <p className="text-[#F8FAFC]">{item.finding}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        item.visual_match
-                      )}`}
+                      <div className="flex gap-4">
+                        {/* Colored rail */}
+                        <div
+                          className={`w-1 rounded-full mt-1 ${getSeverityColor(
+                            impactLabel
+                          )}`}
+                        />
+
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[#F8FAFC]">
+                                {item.category}
+                              </span>
+                              <span className="text-xs text-[#6B7280]">
+                                Text analysis
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                  statusLabel
+                                )}`}
+                              >
+                                {statusLabel}
+                              </span>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getSeverityColor(
+                                  impactLabel
+                                )}`}
+                              >
+                                {impactLabel} impact
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-[#E5E7EB] leading-relaxed">
+                            {item.finding}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Image-based findings */}
+            {image_based_findings.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2">
+                  <ImageIcon size={16} className="text-[#06B6D4]" />
+                  Image Findings
+                </h4>
+                {image_based_findings.map((item: any, index: number) => {
+                  const visual = item.visual_match || "Unknown";
+
+                  return (
+                    <Card
+                      key={`image-${index}`}
+                      className="p-5 bg-[#020617] border border-[#1E293B]"
                     >
-                      {item.visual_match}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                      <div className="flex gap-4">
+                        {/* Colored rail based on visual match */}
+                        <div
+                          className={`w-1 rounded-full mt-1 ${getStatusColor(
+                            visual
+                          )}`}
+                        />
+
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[#F8FAFC]">
+                                {item.diagram_type}
+                              </span>
+                              <span className="text-xs text-[#6B7280]">
+                                Image analysis
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                  visual
+                                )}`}
+                              >
+                                {visual}
+                              </span>
+                              {item.status && (
+                                <span className="px-3 py-1 rounded-full text-xs font-medium text-[#94A3B8] bg-[#1E293B] border border-[#334155]">
+                                  {item.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-[#E5E7EB] leading-relaxed">
+                            {item.finding}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -785,57 +885,96 @@ function ResultsStep({ result }: { result: any }) {
         )}
 
         {activeTab === "codes" && (
-          <div className="space-y-3 animate-in fade-in duration-300 slide-in-from-bottom-2">
-            {relevant_sections.map((section: any, index: number) => (
-              <div
-                key={index}
-                className="p-4 rounded-lg bg-[#1E293B] border border-[#334155] hover:border-[#0B67FF]/50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <BookOpen size={16} className="text-[#0B67FF]" />
-                    <span className="text-sm font-medium text-[#F8FAFC]">
-                      {section.content_type?.replace("_", " ").toUpperCase() ||
-                        "CODE SECTION"}
-                    </span>
-                  </div>
-                  <span className="text-xs text-[#6B7280] px-2 py-1 bg-[#0F172A] rounded">
-                    Page {section.page}
-                  </span>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-300 slide-in-from-bottom-2">
+            {/* Left: list of references */}
+            <div className="space-y-3">
+              {relevant_sections.map((section: any, index: number) => {
+                const isSelected = selectedSection === section;
+                const similarity = Math.round(
+                  (section.similarity_score || 0) * 100
+                );
 
-                {section.content && (
-                  <p className="text-sm text-[#94A3B8] line-clamp-3 mb-3 font-mono bg-[#0F172A] p-3 rounded border border-[#334155]">
-                    {section.content}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-24 bg-[#0F172A] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#10B981]"
-                        style={{
-                          width: `${(section.similarity_score || 0) * 100}%`,
-                        }}
-                      />
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setSelectedSection(section)}
+                    className={`w-full text-left p-4 rounded-lg border transition-colors bg-[#0F172A] hover:border-[#0B67FF]/60 focus:outline-none focus:ring-2 focus:ring-[#0B67FF]/60 ${
+                      isSelected ? "border-[#0B67FF]" : "border-[#334155]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={16} className="text-[#0B67FF]" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                          {section.content_type?.replace("_", " ").toUpperCase() ||
+                            "REGULATION TEXT"}
+                        </span>
+                      </div>
+                      <span className="text-xs text-[#9CA3AF] px-2 py-1 bg-[#020617] rounded">
+                        Page {section.page}
+                      </span>
                     </div>
-                    <span className="text-xs font-medium text-[#10B981]">
-                      {Math.round((section.similarity_score || 0) * 100)}% Match
+
+                    {section.content && (
+                      <p className="text-sm text-[#E5E7EB] mb-3 line-clamp-4">
+                        {section.content}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-1.5 w-24 bg-[#020617] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#10B981]"
+                            style={{ width: `${similarity}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-[#10B981]">
+                          {similarity}% Match
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <span className="text-xs text-[#0B67FF] font-medium">
+                          Viewing in book
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right: embedded code book viewer */}
+            <div className="rounded-lg border border-[#334155] bg-[#020617] overflow-hidden flex flex-col">
+              <div className="px-4 py-3 border-b border-[#1E293B] flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[#F8FAFC]">
+                    Code Book Viewer
+                  </span>
+                  {selectedSection && (
+                    <span className="text-xs text-[#9CA3AF]">
+                      Showing page {selectedSection.page}
                     </span>
-                  </div>
-                  {section.type === "image" && (
-                    <Button
-                      variant="ghost"
-                      className="text-[#0B67FF] h-auto py-1 px-2"
-                    >
-                      <ExternalLink size={14} className="mr-1" />
-                      View Image
-                    </Button>
                   )}
                 </div>
+                <span className="text-xs text-[#6B7280]">Source: Local PDF</span>
               </div>
-            ))}
+
+              <div className="flex-1 min-h-[360px] bg-black/20">
+                {selectedSection ? (
+                  <iframe
+                    title="Code Book"
+                    src={`${codeBookPdf}#page=${selectedSection.page}`}
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-[#6B7280] text-sm">
+                    Select a reference on the left to view it in the code book.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
