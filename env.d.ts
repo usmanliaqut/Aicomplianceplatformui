@@ -7,3 +7,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "*.pdf" {
+  const pdfUrl: string;
+  export default pdfUrl;
+}

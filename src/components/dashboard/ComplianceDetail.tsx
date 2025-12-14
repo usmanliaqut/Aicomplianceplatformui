@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
@@ -12,19 +13,31 @@ import {
   ExternalLink,
   RefreshCw,
   Download,
+  Loader2,
 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
+import CodePdf from "../../North Bay Village, FL Unified Land Development Code.pdf";
 import { useComplianceRecord } from "../../hooks/useCompliance";
+import {
+  ComplianceDecision,
+  downloadComplianceResult,
+  updateComplianceDecision,
+} from "../../api/compliance";
 
 interface ComplianceDetailProps {
   complianceId: number;
+  projectId: number;
   onBack: () => void;
 }
 
-export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps) {
+export function ComplianceDetail({ complianceId, projectId, onBack }: ComplianceDetailProps) {
   const { data, isLoading, error } = useComplianceRecord(complianceId);
   const [activeTab, setActiveTab] = useState<string>("detailed");
+  const [currentPage, setCurrentPage] = useState<number | null>(null);
+  const [isSavingDecision, setIsSavingDecision] = useState<boolean>(false);
+  const [showDecisionMenu, setShowDecisionMenu] = useState<boolean>(false);
+  const queryClient = useQueryClient();
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -51,6 +64,27 @@ export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps
   };
 
   const result = data?.compliance_result;
+  const sectionsForPages = (result?.relevant_sections || []) as any[];
+
+  const referencedPages = useMemo(() => {
+    const rawPages = (sectionsForPages || [])
+      .map((s: any) => s?.page)
+      .filter((p: any) => typeof p === "number" && !isNaN(p)) as number[];
+
+    const pages = Array.from(new Set(rawPages)) as number[];
+
+    return pages.sort((a, b) => a - b);
+  }, [sectionsForPages]);
+
+  const initialPage = referencedPages.length > 0 ? referencedPages[0] : 1;
+
+  useEffect(() => {
+    if (currentPage === null && initialPage) {
+      setCurrentPage(initialPage);
+    }
+  }, [currentPage, initialPage]);
+
+  const codePdfUrl = CodePdf as string | undefined;
 
   if (isLoading) {
     return (
@@ -88,6 +122,25 @@ export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps
     relevant_sections = [],
   } = result;
 
+  const currentDecision: ComplianceDecision | undefined =
+    (data as any)?.compliance_decision;
+
+  const getDecisionLabelAndColor = (decisionValue: ComplianceDecision | undefined) => {
+    switch (decisionValue) {
+      case "APPROVED":
+        return { label: "Approved", color: "text-[#10B981]" };
+      case "REJECTED":
+        return { label: "Rejected", color: "text-[#EF4444]" };
+      case "CONDITIONAL_APPROVAL":
+        return { label: "Conditional Approval", color: "text-[#F59E0B]" };
+      case "NEEDS_REVISION":
+        return { label: "Needs Revision", color: "text-[#F97316]" };
+      case "PENDING":
+      default:
+        return { label: "Pending Decision", color: "text-[#94A3B8]" };
+    }
+  };
+
   const tabs = [
     { id: "detailed", label: "Detailed Analysis", icon: Info },
     { id: "findings", label: "Findings", icon: FileText },
@@ -104,9 +157,46 @@ export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps
       count: recommendations.length,
     },
     { id: "codes", label: "Code References", icon: BookOpen },
+    { id: "document", label: "Code Document", icon: BookOpen },
   ];
 
-  const decision = approved ? "Approved" : "Conditional Approval";
+  const decisionDisplay = getDecisionLabelAndColor(currentDecision);
+
+  const handleDownloadReport = async () => {
+    try {
+      const blob = await downloadComplianceResult(projectId, complianceId);
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `compliance-${projectId}-${complianceId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to download compliance JSON", e);
+    }
+  };
+
+  const handleDecisionChange = async (decision: ComplianceDecision) => {
+    if (isSavingDecision) return;
+    try {
+      setIsSavingDecision(true);
+      await updateComplianceDecision(projectId, complianceId, decision);
+      await queryClient.invalidateQueries({
+        queryKey: ["complianceRecord", complianceId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["compliances", projectId],
+      });
+    } catch (e) {
+      console.error("Failed to update compliance decision", e);
+    } finally {
+      setIsSavingDecision(false);
+    }
+  };
 
   return (
     <div className="p-6">
@@ -150,11 +240,9 @@ export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps
           <Card className="flex flex-col items-center justify-center p-6 bg-[#1E293B] border border-[#334155]">
             <h3 className="text-[#94A3B8] text-sm font-medium mb-2">Status</h3>
             <div
-              className={`text-xl font-bold ${
-                approved ? "text-[#10B981]" : "text-[#F59E0B]"
-              }`}
+              className={`text-xl font-bold ${decisionDisplay.color}`}
             >
-              {decision}
+              {decisionDisplay.label}
             </div>
           </Card>
         </div>
@@ -468,24 +556,179 @@ export function ComplianceDetail({ complianceId, onBack }: ComplianceDetailProps
               ))}
             </div>
           )}
+
+          {activeTab === "document" && (
+            <Card className="bg-[#020617] border border-[#334155] overflow-hidden flex flex-col animate-in fade-in duration-300 slide-in-from-bottom-2">
+              {/* Toolbar */}
+              <div className="px-4 py-3 border-b border-[#1E293B] bg-gradient-to-r from-[#020617] via-[#020617] to-[#020617]/60 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-[#E5E7EB]">
+                  <BookOpen size={16} className="text-[#0B67FF]" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">North Bay Village, FL Unified Land Development Code</span>
+                    <span className="text-[11px] text-[#6B7280]">
+                      View the official code pages referenced in this review.
+                    </span>
+                  </div>
+                  {currentPage && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-[#0B67FF]/15 text-[11px] text-[#E5F0FF] border border-[#0B67FF]/40 whitespace-nowrap">
+                      Page {currentPage}
+                    </span>
+                  )}
+                </div>
+
+                {!codePdfUrl && (
+                  <span className="text-[11px] text-[#F97316] font-medium">
+                    PDF file is missing. Ensure the code document PDF is available.
+                  </span>
+                )}
+              </div>
+
+              {/* Page chips row */}
+              <div className="px-4 py-2 border-b border-[#1E293B] bg-[#020617]">
+                {referencedPages.length === 0 ? (
+                  <p className="text-xs text-[#6B7280]">
+                    No specific pages were referenced for this compliance result.
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-[#6B7280] whitespace-nowrap">
+                      Referenced pages:
+                    </span>
+                    <div className="flex-1 overflow-x-auto no-scrollbar">
+                      <div className="flex gap-2">
+                        {referencedPages.map((page) => {
+                          const isActive = currentPage === page;
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap ${
+                                isActive
+                                  ? "bg-[#0B67FF]/20 border-[#0B67FF] text-[#E5F0FF] shadow-sm shadow-[#0B67FF]/40"
+                                  : "bg-[#020617] border-[#1E293B] text-[#9CA3AF] hover:border-[#0B67FF]/70 hover:text-[#E5E7EB]"
+                              }`}
+                            >
+                              Page {page}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Open in new tab section */}
+              <div className="px-4 py-4 bg-[#020617] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs sm:text-sm text-[#9CA3AF] max-w-xl">
+                  {codePdfUrl ? (
+                    <p>
+                      Use the referenced pages above, then open the official PDF in a
+                      new browser tab for a full-screen reading experience.
+                    </p>
+                  ) : (
+                    <p className="text-[#F97316]">
+                      Unable to locate the code document PDF. Please ensure the file
+                      is present in the project and correctly imported.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 mt-2 sm:mt-0">
+                  <Button
+                    className="bg-[#0B67FF] hover:bg-[#1D4ED8] text-white text-xs sm:text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={!codePdfUrl || !currentPage}
+                    onClick={() => {
+                      if (!codePdfUrl || !currentPage) return;
+                      const url = `${codePdfUrl}#page=${currentPage}`;
+                      window.open(url, "_blank");
+                    }}
+                  >
+                    <ExternalLink size={14} />
+                    <span>
+                      {currentPage
+                        ? `Open Document at Page ${currentPage}`
+                        : "Open Document"}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Action Bar */}
         <div className="mt-8">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex flex-1 md:flex-none items-center gap-3">
-              <Button className="flex-1 md:flex-none bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155]">
+          <div className="max-w-7xl mx-auto flex flex-col gap-3">
+            {/* Decision summary row */}
+            <div className="flex items-center justify-between text-xs text-[#9CA3AF]">
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-[11px] text-[#6B7280]">
+                  Decision
+                </span>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#020617] border border-[#1E293B] text-[11px]">
+                  <span className={decisionDisplay.color.replace("text-", "bg-") + "/40 w-2 h-2 rounded-full"} />
+                  <span className="text-[#E5E7EB]">{decisionDisplay.label}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <Button
+                className="w-full md:w-auto bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155]"
+                onClick={handleDownloadReport}
+              >
                 <Download size={18} className="mr-2" />
                 Download Report
               </Button>
-              <Button className="flex-1 md:flex-none bg-[#EF4444] hover:bg-[#DC2626] text-white border-none">
-                <RefreshCw size={18} className="mr-2" />
-                Request Revisions
-              </Button>
-              <Button className="flex-1 md:flex-none bg-[#10B981] hover:bg-[#059669] text-white border-none">
-                <CheckCircle2 size={18} className="mr-2" />
-                Approve Plan
-              </Button>
+
+              <div className="relative w-full md:w-auto">
+                <Button
+                  className="w-full md:w-auto bg-[#020617] hover:bg-[#0B1120] text-[#E5E7EB] border border-[#1E293B] flex items-center justify-center gap-2"
+                  disabled={isSavingDecision}
+                  onClick={() => setShowDecisionMenu((prev) => !prev)}
+                >
+                  {isSavingDecision ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                  <span className="text-xs md:text-sm font-medium">
+                    {isSavingDecision ? "Saving decision..." : "Change decision"}
+                  </span>
+                </Button>
+
+                {showDecisionMenu && !isSavingDecision && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-lg border border-[#1E293B] bg-[#020617] shadow-xl z-20">
+                    <div className="px-3 py-2 border-b border-[#1E293B]">
+                      <p className="text-xs text-[#9CA3AF]">Select a decision</p>
+                    </div>
+                    <div className="py-1">
+                      {[
+                        { value: "APPROVED" as ComplianceDecision, label: "Approved", icon: CheckCircle2, color: "text-[#10B981]" },
+                        { value: "CONDITIONAL_APPROVAL" as ComplianceDecision, label: "Conditional Approval", icon: AlertTriangle, color: "text-[#FBBF24]" },
+                        { value: "NEEDS_REVISION" as ComplianceDecision, label: "Needs Revision", icon: AlertTriangle, color: "text-[#F97316]" },
+                        { value: "REJECTED" as ComplianceDecision, label: "Rejected", icon: AlertTriangle, color: "text-[#EF4444]" },
+                        { value: "PENDING" as ComplianceDecision, label: "Mark as Pending", icon: RefreshCw, color: "text-[#9CA3AF]" },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[#E5E7EB] hover:bg-[#0B1120] ${
+                            option.value === currentDecision ? "bg-[#0B1120]" : ""
+                          }`}
+                          onClick={async () => {
+                            setShowDecisionMenu(false);
+                            await handleDecisionChange(option.value);
+                          }}
+                        >
+                          <option.icon size={16} className={option.color} />
+                          <span>{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

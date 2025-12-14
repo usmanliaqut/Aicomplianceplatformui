@@ -23,11 +23,17 @@ import { Card } from "../ui/Card";
 import { useCompliance } from "../../hooks/useCompliance";
 import { Button } from "../ui/Button";
 import codeBookPdf from "../../North Bay Village, FL Unified Land Development Code.pdf";
+import { toast } from "react-hot-toast";
 
 interface ComplianceCreateProps {
   projectId: string;
   projectName: string;
   onBack: () => void;
+  onTaskStarted?: (task: {
+    taskId: string;
+    websocketUrl: string;
+    complianceId?: number;
+  }) => void;
 }
 
 interface ComplianceResult {
@@ -65,6 +71,7 @@ export function ComplianceCreate({
   projectId,
   projectName,
   onBack,
+  onTaskStarted,
 }: ComplianceCreateProps) {
   const [currentStep, setCurrentStep] = useState<FlowStep>("upload");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -73,28 +80,38 @@ export function ComplianceCreate({
 
   console.log("projectId", projectId);
 
-  const { runCompliance, result, loading, progress, error, statusText } =
-    useCompliance();
+  const { runCompliance, loading, error } = useCompliance();
 
   const handleSubmit = async () => {
     if (selectedFiles.length === 0) return;
 
-    setCurrentStep("analyzing");
+    // Only support the first file (API expects a single 'file')
+    const payload = {
+      projectId: Number(projectId),
+      file: selectedFiles[0],
+      use_cache: useCache,
+      cache_ttl: cacheTtl,
+    };
 
     try {
-      // Only support the first file (API expects a single 'file')
-      const payload = {
-        projectId: Number(projectId),
-        file: selectedFiles[0],
-        use_cache: useCache,
-        cache_ttl: cacheTtl,
-      };
+      // Wait for the REST call to finish so the loader stays visible until completion
+      const task = await runCompliance(payload);
 
-      await runCompliance(payload);
+      if (onTaskStarted) {
+        onTaskStarted({
+          taskId: task.task_id,
+          websocketUrl: task.websocket_url,
+          complianceId: task.compliance_id,
+        });
+      }
 
-      setCurrentStep("results");
-    } catch (err) {
+      toast.success("Compliance created. Analysis in progress...");
+    } catch (err: any) {
       console.error(err);
+      toast.error("Failed to create compliance");
+    } finally {
+      // After REST completion (success or error), go back to the project view
+      onBack();
     }
   };
 
@@ -117,66 +134,23 @@ export function ComplianceCreate({
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center gap-4 mt-6">
-        <StepIndicator
-          step={1}
-          label="Upload Plans"
-          active={currentStep === "upload"}
-          completed={currentStep !== "upload"}
-        />
-        <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
-          <motion.div
-            className="h-full bg-[#0B67FF]"
-            initial={{ width: 0 }}
-            animate={{ width: currentStep !== "upload" ? "100%" : "0%" }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-        <StepIndicator
-          step={2}
-          label="AI Analysis"
-          active={currentStep === "analyzing"}
-          completed={currentStep === "results"}
-        />
-        <div className="flex-1 h-[2px] bg-[#0B67FF]/20">
-          <motion.div
-            className="h-full bg-[#0B67FF]"
-            initial={{ width: 0 }}
-            animate={{ width: currentStep === "results" ? "100%" : "0%" }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-        <StepIndicator
-          step={3}
-          label="Results"
-          active={currentStep === "results"}
-          completed={false}
-        />
-      </div>
+      {/* Content: only upload step now, results are viewed from project page */}
       <div className="flex-1 overflow-y-auto p-6">
-        {currentStep === "upload" && (
-          <UploadStep
-            selectedFiles={selectedFiles}
-            useCache={useCache}
-            cacheTtl={cacheTtl}
-            onFileChange={(e) =>
-              setSelectedFiles(e.target.files ? Array.from(e.target.files) : [])
-            }
-            onRemoveFile={(i) =>
-              setSelectedFiles((prev) => prev.filter((_, index) => index !== i))
-            }
-            onUseCacheChange={setUseCache}
-            onCacheTtlChange={setCacheTtl}
-            onSubmit={handleSubmit}
-          />
-        )}
-
-        {currentStep === "analyzing" && (
-          <AnalyzingStep progress={progress} statusText={statusText || undefined} />
-        )}
-
-        {currentStep === "results" && result && <ResultsStep result={result} />}
+        <UploadStep
+          selectedFiles={selectedFiles}
+          useCache={useCache}
+          cacheTtl={cacheTtl}
+          onFileChange={(e) =>
+            setSelectedFiles(e.target.files ? Array.from(e.target.files) : [])
+          }
+          onRemoveFile={(i) =>
+            setSelectedFiles((prev) => prev.filter((_, index) => index !== i))
+          }
+          onUseCacheChange={setUseCache}
+          onCacheTtlChange={setCacheTtl}
+          onSubmit={handleSubmit}
+          loading={loading}
+        />
 
         {error && (
           <p className="text-red-500 mt-4 text-center">Error: {error}</p>
@@ -237,6 +211,7 @@ function UploadStep({
   onUseCacheChange,
   onCacheTtlChange,
   onSubmit,
+  loading,
 }: {
   selectedFiles: File[];
   useCache: boolean;
@@ -246,6 +221,7 @@ function UploadStep({
   onUseCacheChange: (value: boolean) => void;
   onCacheTtlChange: (value: number) => void;
   onSubmit: () => void;
+  loading: boolean;
 }) {
   return (
     <motion.div
@@ -349,16 +325,27 @@ function UploadStep({
         {/* Submit Button */}
         <motion.button
           onClick={onSubmit}
-          disabled={selectedFiles.length === 0}
-          whileHover={{ scale: selectedFiles.length > 0 ? 1.02 : 1 }}
-          whileTap={{ scale: selectedFiles.length > 0 ? 0.98 : 1 }}
-          className={`w-full py-3 rounded-lg transition-all ${
-            selectedFiles.length > 0
+          disabled={selectedFiles.length === 0 || loading}
+          whileHover={{
+            scale:
+              selectedFiles.length > 0 && !loading
+                ? 1.02
+                : 1,
+          }}
+          whileTap={{
+            scale:
+              selectedFiles.length > 0 && !loading
+                ? 0.98
+                : 1,
+          }}
+          className={`w-full py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
+            selectedFiles.length > 0 && !loading
               ? "bg-[#0B67FF] hover:bg-[#0952CC] text-white"
               : "bg-[#1E293B] text-[#6B7280] cursor-not-allowed"
           }`}
         >
-          Start AI Compliance Check
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {loading ? "Creating compliance..." : "Start AI Compliance Check"}
         </motion.button>
       </Card>
     </motion.div>
@@ -979,26 +966,6 @@ function ResultsStep({ result }: { result: any }) {
         )}
       </div>
 
-      {/* Action Bar */}
-
-      <div className=" mt-8">
-        <div className="  max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex flex-1 md:flex-none items-center gap-3">
-            <Button className="flex-1 md:flex-none bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155]">
-              <Download size={18} className="mr-2" />
-              Download Report
-            </Button>
-            <Button className="flex-1 md:flex-none bg-[#EF4444] hover:bg-[#DC2626] text-white border-none">
-              <RefreshCw size={18} className="mr-2" />
-              Request Revisions
-            </Button>
-            <Button className="flex-1 md:flex-none bg-[#10B981] hover:bg-[#059669] text-white border-none">
-              <CheckCircle2 size={18} className="mr-2" />
-              Approve Plan
-            </Button>
-          </div>
-        </div>
-      </div>
     </motion.div>
   );
 }

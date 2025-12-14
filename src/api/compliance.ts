@@ -8,12 +8,21 @@ export interface CreateCompliancePayload {
   file: File; // Only one file (API expects single "file")
 }
 
+export type ComplianceDecision =
+  | "APPROVED"
+  | "REJECTED"
+  | "CONDITIONAL_APPROVAL"
+  | "NEEDS_REVISION"
+  | "PENDING";
+
 // Response when starting an async compliance task
 export interface ComplianceTaskResponse {
   task_id: string;
   status: string;
   message?: string;
   websocket_url: string;
+  compliance_id?: number;
+  project_id?: number;
 }
 
 export const createCompliance = async (
@@ -63,5 +72,32 @@ export const getComplianceRecord = async (
   complianceId: number
 ): Promise<any> => {
   const { data } = await api.get(`/compliance/compliance-record/${complianceId}`);
+  return data;
+};
+
+// Download a single compliance result as a JSON file
+export const downloadComplianceResult = async (
+  projectId: number,
+  complianceId: number
+): Promise<Blob> => {
+  const response = await api.get(`/compliance/${projectId}/${complianceId}/download`, {
+    responseType: "blob",
+  });
+
+  return response.data as Blob;
+};
+
+export const updateComplianceDecision = async (
+  projectId: number,
+  complianceId: number,
+  decision: ComplianceDecision
+): Promise<any> => {
+  const { data } = await api.patch(
+    `/compliance/${projectId}/${complianceId}/decision`,
+    {
+      compliance_decision: decision,
+    }
+  );
+
   return data;
 };

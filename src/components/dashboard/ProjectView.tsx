@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ComplianceCreate } from "./ComplianceCreate";
 import { ComplianceDetail } from "./ComplianceDetail";
 import { useCompliances } from "../../hooks/useCompliance";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProjectViewProps {
   project: any;
@@ -30,29 +31,39 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
   const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(
     null
   );
-  const { data, isLoading, error } = useCompliances(project.project_id);
+  const [activeTasks, setActiveTasks] = useState<
+    {
+      complianceId?: number;
+      taskId: string;
+      websocketUrl: string;
+    }[]
+  >([]);
+  const [taskProgressByCompliance, setTaskProgressByCompliance] = useState<
+    Record<number, { step?: string; progress?: number }>
+  >({});
+  const { data, isLoading, error, refetch } = useCompliances(project.project_id);
+  const queryClient = useQueryClient();
 
   // Map API compliance results to the UI shape used below
   const compliances = useMemo(
     () =>
       (data || []).map((item) => {
         const detail = item.compliance_result;
-        const decision = detail?.decision;
 
-        // Derive a simple status string for the UI
-        const status =
-          decision === "approved"
-            ? "approved"
-            : decision === "rejected"
-            ? "rejected"
-            : "pending";
+        // Backend sends an 'approved' boolean, not a 'decision' string.
+        // Treat records with a defined 'approved' flag as completed.
+        let status: "approved" | "rejected" | "pending" = "pending";
+        if (typeof detail?.approved === "boolean") {
+          status = detail.approved ? "approved" : "rejected";
+        }
 
         return {
           id: item.compliance_id,
           fileName: `Compliance #${item.compliance_id}`,
           uploadDate: item.revision_date?.split("T")[0] || "",
           status,
-          score: detail?.overview?.compliance_score ?? 0,
+          // Backend sends `score` at the top level of compliance_result
+          score: typeof detail?.score === "number" ? detail.score : 0,
           checks: [] as { name: string; status: string; message: string }[],
         };
       }),
@@ -94,6 +105,101 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
     },
   ];
 
+  const wsMapRef = useRef<Record<string, WebSocket>>({});
+
+  // Listen for updates on active compliance tasks via WebSocket
+  useEffect(() => {
+    const sockets = wsMapRef.current;
+
+    // Close sockets whose tasks are no longer active
+    Object.entries(sockets).forEach(([taskId, ws]) => {
+      if (!activeTasks.find((t) => t.taskId === taskId)) {
+        try {
+          ws.close();
+        } catch {}
+        delete sockets[taskId];
+      }
+    });
+
+    // Open sockets for any new active tasks
+    activeTasks.forEach((task) => {
+      if (sockets[task.taskId]) return; // already open
+
+      const ws = new WebSocket(task.websocketUrl);
+      sockets[task.taskId] = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket connected for task", task.taskId);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.task_id && msg.task_id !== task.taskId) {
+            return;
+          }
+
+          const complianceId =
+            msg.compliance_id ?? task.complianceId ?? undefined;
+
+          if (msg.event === "progress" && complianceId) {
+            console.log("WS progress", msg);
+            setTaskProgressByCompliance((prev) => ({
+              ...prev,
+              [complianceId]: {
+                step: msg.step,
+                progress: msg.progress,
+              },
+            }));
+          }
+
+          if (msg.event === "completed" || msg.status === "completed") {
+            queryClient.invalidateQueries({
+              queryKey: ["compliances", project.project_id],
+            });
+
+            if (complianceId) {
+              setTaskProgressByCompliance((prev) => {
+                const next = { ...prev };
+                delete next[complianceId];
+                return next;
+              });
+            }
+
+            setActiveTasks((prev) =>
+              prev.filter((t) => t.taskId !== task.taskId)
+            );
+
+            try {
+              ws.close();
+            } catch {}
+            delete sockets[task.taskId];
+          }
+        } catch (e) {
+          console.error("Failed to parse WebSocket message", e);
+        }
+      };
+
+      ws.onerror = (e) => {
+        console.error("WebSocket error", e);
+        try {
+          ws.close();
+        } catch {}
+        delete sockets[task.taskId];
+      };
+    });
+
+    return () => {
+      Object.values(sockets).forEach((ws) => {
+        try {
+          ws.close();
+        } catch {}
+      });
+      wsMapRef.current = {};
+    };
+  }, [activeTasks, project.project_id, queryClient]);
+
   const timeline = [
     {
       date: "2024-01-15",
@@ -115,7 +221,25 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
       <ComplianceCreate
         projectId={project.project_id}
         projectName={project.applicant_name}
-        onBack={() => setShowComplianceCreate(false)}
+        onBack={() => {
+          setShowComplianceCreate(false);
+          // Refresh compliances when returning from the create screen
+          refetch();
+        }}
+        onTaskStarted={(task) => {
+          setActiveTasks((prev) => [
+            ...prev,
+            {
+              complianceId: task.complianceId,
+              taskId: task.taskId,
+              websocketUrl: task.websocketUrl,
+            },
+          ]);
+          setShowComplianceCreate(false);
+          // As soon as the backend starts the task and (ideally) creates a pending record,
+          // refresh the compliances list so the new pending item appears.
+          refetch();
+        }}
       />
     );
   }
@@ -125,6 +249,7 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
     return (
       <ComplianceDetail
         complianceId={selectedComplianceId}
+        projectId={project.project_id}
         onBack={() => setSelectedComplianceId(null)}
       />
     );
@@ -221,14 +346,25 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
               {compliances.map((compliance, index) => {
                 const complianceStatus =
                   statusConfig[compliance.status as keyof typeof statusConfig];
+                const isPending = compliance.status === "pending";
+                const progressForThis =
+                  taskProgressByCompliance[compliance.id as number];
                 return (
                   <motion.div
                     key={compliance.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="p-4 bg-[#0F172A] rounded-lg border border-[#0B67FF]/10 cursor-pointer hover:border-[#0B67FF]/40"
-                    onClick={() => setSelectedComplianceId(compliance.id)}
+                    className={`p-4 bg-[#0F172A] rounded-lg border border-[#0B67FF]/10 ${
+                      isPending
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer hover:border-[#0B67FF]/40"
+                    }`}
+                    onClick={() => {
+                      if (!isPending) {
+                        setSelectedComplianceId(compliance.id);
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 flex-1">
@@ -312,7 +448,12 @@ export function ProjectView({ project, onBack }: ProjectViewProps) {
                     {compliance.status === "pending" && (
                       <div className="flex items-center gap-2 text-[#F97316] mt-3 pt-3 border-t border-[#0B67FF]/10">
                         <Clock size={16} />
-                        <small>Processing compliance check...</small>
+                        <small>
+                          {progressForThis?.step || "Processing compliance check..."}
+                          {typeof progressForThis?.progress === "number"
+                            ? ` (${progressForThis.progress}%)`
+                            : ""}
+                        </small>
                       </div>
                     )}
                   </motion.div>
